@@ -37,7 +37,7 @@ const unsigned char seq_nt4_table[256] = { // translate ACGT to 0123
 
 // Use tinyFA library to parse FASTA file
 // Sequence is stored in seq and is of length len
-void getSeq(char* seq, char* file, int len, char* contigName)
+void getSeq(char*& seq, char* file, int len, char* contigName)
 {
   tiny_faidx_t tf;
   // Check if an index exists, and create one if not.
@@ -49,6 +49,7 @@ void getSeq(char* seq, char* file, int len, char* contigName)
       parseFAIndex(file, tf);
   }
   getSequence(tf, contigName, seq, 0, len-1);
+  //cout << "!" << endl;
 }
 
 // Compute Hamming distance between kmer1 and kmer2
@@ -120,6 +121,7 @@ void output(int *dists , int len)
   for(int i=0; i<=len; i++)
   {
       out << ("\n%d : %d" , i , dists[i]);
+      //cout << ("%d" , dists[i]) << endl;
   }
 
   out.close();
@@ -148,28 +150,39 @@ int main(int argc, char* argv[]) {
   
   // Iterate through k-mers and check HD for each pair
   uint64_t mask = (kVal == 32) ? ~0ULL : ((1ULL << (2 * kVal)) - 1);
-  //cout << "hi";
-  for (int i=0; i<seqLen; i++)
+  //cout << ("%d" , seqLen) << endl;
+  uint64_t kmer1 = 0;
+  for (int i=0; i<kVal-1; i++)
+  {
+    int c = seq_nt4_table[(uint8_t)seq[i]];
+    kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+  }
+  //cout << ("%c" , seq) << endl;
+  //int c = seq_nt4_table[(uint8_t)seq[0]];
+  //cout << ("%c" , seq) << endl;
+  for (int i=kVal-1; i<seqLen; i++)
   {
     //cout << "hi";
-    //int c = seq_nt4_table[(uint8_t)seq[i]];
-    int c = (uint8_t)seq[i];
-    cout << "hi";
-    uint64_t kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+    int c = seq_nt4_table[(uint8_t)seq[i]];
+    //int c = (uint8_t)seq[i];
+    //cout << ("%d" , c) << endl;
+    //cout << "?" << endl;
+    kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
     //cout << "hi";
-    if(i >= kVal-1)
+    uint64_t kmer2 = 0;
+    for (int j=i-kVal+1; j<i+1; j++)
+    {
+      int c = seq_nt4_table[(uint8_t)seq[j]];
+      kmer2 = ((kmer2 << 2) | (uint64_t)c) & mask;
+    }
+    for (int j=i+1; j<seqLen; j++)
     {
       //cout << "hi";
-      for (int j=i+1; j<seqLen; j++)
-      {
-        if(j >= kVal)
-        {
-          //cout << "hi";
-          int c2 = seq_nt4_table[(uint8_t)seq[j]];
-          uint64_t kmer2 = ((kmer2 << 2) | (uint64_t)c2) & mask;
-          dists[HD(kmer1  , kmer2 , kVal , method)] ++;
-        }
-      }
+      int c2 = seq_nt4_table[(uint8_t)seq[j]];
+      kmer2 = ((kmer2 << 2) | (uint64_t)c2) & mask;
+      //cout << (kmer1) << "," << (kmer2) << endl;
+      dists[HD(kmer1  , kmer2 , kVal , method)] ++;
+      cout << ("%d" , HD(kmer1  , kmer2 , kVal , method)) << endl;
     }
   }
   
