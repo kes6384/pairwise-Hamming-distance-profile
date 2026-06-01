@@ -94,12 +94,14 @@ int hdPC(uint64_t kmer1, uint64_t kmer2 , int k)
 }
 
 // Call the requested method to compute HD on kmer1 and kmer2
-int HD(uint64_t kmer1 , uint64_t kmer2 , int k, char* method)
+int HD(uint64_t kmer1 , uint64_t kmer2 , int k, string method)
 {
   int hd = 0;
+  //cout << ("%s" , method) << endl;
 
   if(method == "XOR")
   {
+    //cout << "!" << endl;
     hd = hdXOR(kmer1 , kmer2 , k);
   }
   else if(method == "popcount")
@@ -117,23 +119,27 @@ void output(int *dists , int len)
 {
   ofstream out("HD_cpp_out.txt");
 
-  out << "Hamming Distance : Number of Pairs";
+  out << "Hamming Distance : Number of Pairs" << endl;
   for(int i=0; i<=len; i++)
   {
-      out << ("\n%d : %d" , i , dists[i]);
+      //out << ("%d : %d" , i , dists[i]) << endl;
+      out << ("%d" , i) << (" : ") << ("%d" , dists[i]) << endl;
       //cout << ("%d" , dists[i]) << endl;
   }
 
   out.close();
 }
 
-//command line args: file name, seqLen, k, method (XOR, popcount), sequence name
+//command line args: file name, seqLen, k, method (XOR, popcount), kmerList (y, n), sequence name
 int main(int argc, char* argv[]) {
   char* file = argv[1];
   int seqLen = atoi(argv[2]); // Sequence length
   int kVal = atoi(argv[3]); // k-mer length
   char* method = argv[4]; // Which method to use to compute HD (XOR, popcount)
-  char* contigName = argv[5]; // Sequence name
+  char* kmerList = argv[5]; // If k-mers should be extracted once and put into a list or extracted in the loop
+  //cout << ("%s" , method) << endl;
+
+  char* contigName = argv[6]; // Sequence name
 
   popMask = (2.0)*((pow(4 , kVal) - 1)/3.0); // Keep odd bits
   popMask2 = popMask >> 1; // Keep even bits
@@ -151,38 +157,79 @@ int main(int argc, char* argv[]) {
   // Iterate through k-mers and check HD for each pair
   uint64_t mask = (kVal == 32) ? ~0ULL : ((1ULL << (2 * kVal)) - 1);
   //cout << ("%d" , seqLen) << endl;
-  uint64_t kmer1 = 0;
-  for (int i=0; i<kVal-1; i++)
+  if(*kmerList == 'n')
   {
-    int c = seq_nt4_table[(uint8_t)seq[i]];
-    kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
-  }
-  //cout << ("%c" , seq) << endl;
-  //int c = seq_nt4_table[(uint8_t)seq[0]];
-  //cout << ("%c" , seq) << endl;
-  for (int i=kVal-1; i<seqLen; i++)
-  {
-    //cout << "hi";
-    int c = seq_nt4_table[(uint8_t)seq[i]];
-    //int c = (uint8_t)seq[i];
-    //cout << ("%d" , c) << endl;
-    //cout << "?" << endl;
-    kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
-    //cout << "hi";
-    uint64_t kmer2 = 0;
-    for (int j=i-kVal+1; j<i+1; j++)
+    uint64_t kmer1 = 0;
+    for (int i=0; i<kVal-1; i++)
     {
-      int c = seq_nt4_table[(uint8_t)seq[j]];
-      kmer2 = ((kmer2 << 2) | (uint64_t)c) & mask;
+      int c = seq_nt4_table[(uint8_t)seq[i]];
+      //int c = seq[i];
+      kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
     }
-    for (int j=i+1; j<seqLen; j++)
+    //cout << ("%c" , seq) << endl;
+    //int c = seq_nt4_table[(uint8_t)seq[0]];
+    //cout << ("%c" , seq) << endl;
+    for (int i=kVal-1; i<seqLen; i++)
     {
       //cout << "hi";
-      int c2 = seq_nt4_table[(uint8_t)seq[j]];
-      kmer2 = ((kmer2 << 2) | (uint64_t)c2) & mask;
-      //cout << (kmer1) << "," << (kmer2) << endl;
-      dists[HD(kmer1  , kmer2 , kVal , method)] ++;
-      cout << ("%d" , HD(kmer1  , kmer2 , kVal , method)) << endl;
+      int c = seq_nt4_table[(uint8_t)seq[i]];
+      //int c = seq[i];
+      //int c = (uint8_t)seq[i];
+      //cout << ("%d" , c) << endl;
+      //cout << "?" << endl;
+      kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+      //cout << "hi";
+      uint64_t kmer2 = 0;
+      for (int j=i-kVal+1; j<i+1; j++)
+      {
+        int c = seq_nt4_table[(uint8_t)seq[j]];
+        kmer2 = ((kmer2 << 2) | (uint64_t)c) & mask;
+      }
+      for (int j=i+1; j<seqLen; j++)
+      {
+        //cout << "hi";
+        int c2 = seq_nt4_table[(uint8_t)seq[j]];
+        kmer2 = ((kmer2 << 2) | (uint64_t)c2) & mask;
+        //cout << (kmer1) << "," << (kmer2) << endl;
+        dists[HD(kmer1  , kmer2 , kVal , method)] ++;
+        //cout << ("%d" , HD(kmer1  , kmer2 , kVal , method)) << endl;
+      }
+    }
+  }
+  else
+  {
+    int numKmers = (seqLen-kVal)+1;
+    uint64_t *kmers = (uint64_t *)calloc(numKmers , kVal);
+    //cout << ("%d" , (seqLen-kVal)+1) << endl;
+    uint64_t kmer1 = 0;
+    for (int i=0; i<kVal-1; i++)
+    {
+      int c = seq_nt4_table[(uint8_t)seq[i]];
+      //int c = seq[i];
+      kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+    }
+    // extract all k-mers
+    int count = 0;
+    for(int i=kVal-1; i<seqLen; i++)
+    {
+      int c = seq_nt4_table[(uint8_t)seq[i]];
+      kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+      kmers[count] = kmer1;
+      //cout << ("%d" , kmers[numKmers]) << endl;
+      count ++;
+    }
+    // Check HD of all k-mer pairs
+    for (int i=0; i<numKmers-1; i++)
+    {
+      kmer1 = kmers[i];
+      uint64_t kmer2 = 0;
+      for (int j=i+1; j<numKmers; j++)
+      {
+        kmer2 = kmers[j];
+        //cout << (kmer1) << "," << (kmer2) << endl;
+        dists[HD(kmer1  , kmer2 , kVal , method)] ++;
+        //cout << ("%d" , HD(kmer1  , kmer2 , kVal , method)) << endl;
+      }
     }
   }
   
