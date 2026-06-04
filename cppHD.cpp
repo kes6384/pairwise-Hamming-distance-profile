@@ -9,6 +9,8 @@
 #include "tinyFA.hpp"  // FASTA file parser: https://github.com/edawson/tinyFA
 #include "pliib.hpp"
 
+#define popcount // XOR or popcount, choose HD calculation method
+
 using namespace std;
 using namespace TFA;
 
@@ -73,6 +75,7 @@ int hdXOR(uint64_t kmer1 , uint64_t kmer2 , int k)
 
 int hdPC(uint64_t kmer1, uint64_t kmer2 , int k)
 {
+  int dist = 0;
   // Mask bits to separate first and second bits of each character for each subsequence
   uint64_t subseq1_oddBit = kmer1 & popMask;
   uint64_t subseq2_oddBit = kmer2 & popMask;
@@ -89,10 +92,11 @@ int hdPC(uint64_t kmer1, uint64_t kmer2 , int k)
   // popcount(~nor) = number of characters that did not match
   // ~nor = or
   uint64_t orResult = xor_firstBits | xor_secondBits;
-  int dist = __builtin_popcount(orResult);
+  dist = __builtin_popcount(orResult);
   return dist;
 }
 
+/*
 // Call the requested method to compute HD on kmer1 and kmer2
 int HD(uint64_t kmer1 , uint64_t kmer2 , int k, string method)
 {
@@ -110,7 +114,7 @@ int HD(uint64_t kmer1 , uint64_t kmer2 , int k, string method)
   }
   
   return hd;
-}
+}*/
 
 // Output array of Hamming distance counts to a text file
 // dists - array of Hamming distance counts
@@ -130,16 +134,15 @@ void output(int *dists , int len)
   out.close();
 }
 
-//command line args: file name, seqLen, k, method (XOR, popcount), kmerList (y, n), sequence name
+//command line args: file name, seqLen, k, kmerList (y, n), sequence name
 int main(int argc, char* argv[]) {
   char* file = argv[1];
   int seqLen = atoi(argv[2]); // Sequence length
   int kVal = atoi(argv[3]); // k-mer length
-  char* method = argv[4]; // Which method to use to compute HD (XOR, popcount)
-  char* kmerList = argv[5]; // If k-mers should be extracted once and put into a list or extracted in the loop
+  char* kmerList = argv[4]; // If k-mers should be extracted once and put into a list or extracted in the loop
   //cout << ("%s" , method) << endl;
 
-  char* contigName = argv[6]; // Sequence name
+  char* contigName = argv[5]; // Sequence name
 
   popMask = (2.0)*((pow(4 , kVal) - 1)/3.0); // Keep odd bits
   popMask2 = popMask >> 1; // Keep even bits
@@ -179,27 +182,33 @@ int main(int argc, char* argv[]) {
       //cout << "?" << endl;
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
       //cout << "hi";
-      uint64_t kmer2 = 0;
-      for (int j=i-kVal+1; j<i+1; j++)
+      //uint64_t kmer2 = 0;
+      uint64_t kmer2 = kmer1;
+      /*for (int j=i-kVal+1; j<i+1; j++)
       {
         int c = seq_nt4_table[(uint8_t)seq[j]];
         kmer2 = ((kmer2 << 2) | (uint64_t)c) & mask;
-      }
+      }*/
       for (int j=i+1; j<seqLen; j++)
       {
         //cout << "hi";
         int c2 = seq_nt4_table[(uint8_t)seq[j]];
         kmer2 = ((kmer2 << 2) | (uint64_t)c2) & mask;
         //cout << (kmer1) << "," << (kmer2) << endl;
-        dists[HD(kmer1  , kmer2 , kVal , method)] ++;
-        //cout << ("%d" , HD(kmer1  , kmer2 , kVal , method)) << endl;
+        #ifdef XOR
+          dists[hdXOR(kmer1  , kmer2 , kVal)] ++;
+        #endif
+        #ifdef popcount
+          dists[hdPC(kmer1  , kmer2 , kVal)] ++;
+        #endif
+        //cout << ("%d" , HD(kmer1  , kmer2 , kVal)) << endl;
       }
     }
   }
   else
   {
     int numKmers = (seqLen-kVal)+1;
-    uint64_t *kmers = (uint64_t *)calloc(numKmers , kVal);
+    uint64_t *kmers = (uint64_t *)calloc(numKmers , 2*kVal);
     //cout << ("%d" , (seqLen-kVal)+1) << endl;
     uint64_t kmer1 = 0;
     for (int i=0; i<kVal-1; i++)
@@ -227,8 +236,13 @@ int main(int argc, char* argv[]) {
       {
         kmer2 = kmers[j];
         //cout << (kmer1) << "," << (kmer2) << endl;
-        dists[HD(kmer1  , kmer2 , kVal , method)] ++;
-        //cout << ("%d" , HD(kmer1  , kmer2 , kVal , method)) << endl;
+        #ifdef XOR
+          dists[hdXOR(kmer1  , kmer2 , kVal)] ++;
+        #endif
+        #ifdef popcount
+          dists[hdPC(kmer1  , kmer2 , kVal)] ++;
+        #endif
+        //cout << ("%d" , HD(kmer1  , kmer2 , kVal)) << endl;
       }
     }
   }
