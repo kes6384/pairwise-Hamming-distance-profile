@@ -50,7 +50,7 @@ void getSeq(char*& seq, char* file, int len, char* contigName)
       // Parses an FAI file when passed a FASTA file name.
       parseFAIndex(file, tf);
   }
-  getSequence(tf, contigName, seq, 0, len-1);
+  getSequence(tf, contigName, seq, 0, len);
   //cout << "!" << endl;
 }
 
@@ -153,9 +153,17 @@ int main(int argc, char* argv[]) {
   //cout << "hi";
 
   // Parse FASTA file to get sequence
-  char *seq;
-  getSeq(seq , file , seqLen , contigName);
+  char *charSeq;
+  getSeq(charSeq , file , seqLen , contigName);
   //cout << "hi";
+
+  int* seq = (int *)calloc(seqLen , sizeof(int));
+  //cout << ("%d" , (int)strlen(charSeq)) << endl;
+  for (int i=0; i<seqLen; i++)
+  {
+    seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
+  }
+  //delete [] charSeq;
   
   // Iterate through k-mers and check HD for each pair
   uint64_t mask = (kVal == 32) ? ~0ULL : ((1ULL << (2 * kVal)) - 1);
@@ -165,18 +173,17 @@ int main(int argc, char* argv[]) {
     uint64_t kmer1 = 0;
     for (int i=0; i<kVal-1; i++)
     {
-      int c = seq_nt4_table[(uint8_t)seq[i]];
-      //int c = seq[i];
+      //int c = seq_nt4_table[(uint8_t)charSeq[i]];
+      int c = seq[i];
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
     }
     //cout << ("%c" , seq) << endl;
     //int c = seq_nt4_table[(uint8_t)seq[0]];
-    //cout << ("%c" , seq) << endl;
     for (int i=kVal-1; i<seqLen; i++)
     {
       //cout << "hi";
-      int c = seq_nt4_table[(uint8_t)seq[i]];
-      //int c = seq[i];
+      //int c = seq_nt4_table[(uint8_t)charSeq[i]];
+      int c = seq[i];
       //int c = (uint8_t)seq[i];
       //cout << ("%d" , c) << endl;
       //cout << "?" << endl;
@@ -189,10 +196,13 @@ int main(int argc, char* argv[]) {
         int c = seq_nt4_table[(uint8_t)seq[j]];
         kmer2 = ((kmer2 << 2) | (uint64_t)c) & mask;
       }*/
+      //cout << ("%d" , kmer1) << endl;
+      //cout << ("%s" , charSeq[i]) << endl;
       for (int j=i+1; j<seqLen; j++)
       {
         //cout << "hi";
-        int c2 = seq_nt4_table[(uint8_t)seq[j]];
+        //int c2 = seq_nt4_table[(uint8_t)charSeq[j]];
+        int c2 = seq[j];
         kmer2 = ((kmer2 << 2) | (uint64_t)c2) & mask;
         //cout << (kmer1) << "," << (kmer2) << endl;
         #ifdef XOR
@@ -213,15 +223,16 @@ int main(int argc, char* argv[]) {
     uint64_t kmer1 = 0;
     for (int i=0; i<kVal-1; i++)
     {
-      int c = seq_nt4_table[(uint8_t)seq[i]];
-      //int c = seq[i];
+      //int c = seq_nt4_table[(uint8_t)charSeq[i]];
+      int c = seq[i];
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
     }
     // extract all k-mers
     int count = 0;
     for(int i=kVal-1; i<seqLen; i++)
     {
-      int c = seq_nt4_table[(uint8_t)seq[i]];
+      //int c = seq_nt4_table[(uint8_t)charSeq[i]];
+      int c = seq[i];
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
       kmers[count] = kmer1;
       //cout << ("%d" , kmers[numKmers]) << endl;
@@ -247,7 +258,7 @@ int main(int argc, char* argv[]) {
     }
   }
   
-  delete [] seq;
+  free(seq);
   output(dists , kVal);
   free(dists);
   return 0;
