@@ -120,7 +120,7 @@ int HD(uint64_t kmer1 , uint64_t kmer2 , int k, string method)
 // Output array of Hamming distance counts to a text file
 // dists - array of Hamming distance counts
 // len - length of array of Hamming distance counts (equivalent to k-mer size + 1, since HD ranges from 0 to k)
-void output(int *dists , int len)
+void output(unsigned long long *dists , int len)
 {
   ofstream out("HD_cpp_out.txt");
 
@@ -149,13 +149,14 @@ int main(int argc, char* argv[]) {
   popMask2 = popMask >> 1; // Keep even bits
 
   // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
-  int *dists = (int *)calloc(kVal+1 , sizeof(int));
+  unsigned long long *dists = (unsigned long long *)calloc(kVal+1 , sizeof(int));
 
   //cout << "hi";
 
   // Parse FASTA file to get sequence
   char *charSeq;
   getSeq(charSeq , file , seqLen , contigName);
+  cout << ("%d" , strlen(charSeq)) << endl;
   //cout << "hi";
 
   //cout << ("%d" , (int)strlen(charSeq)) << endl;
@@ -163,9 +164,12 @@ int main(int argc, char* argv[]) {
   #ifndef compress
   int* seq = (int *)calloc(seqLen , sizeof(int));
   // Store as array of integers, each int is one encoded character
-  for (int i=0; i<seqLen; i++)
+  if (*kmerList == 'y')
   {
-    seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
+    for (int i=0; i<seqLen; i++)
+    {
+      seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
+    }
   }
   #endif
   #ifdef compress
@@ -199,7 +203,7 @@ int main(int argc, char* argv[]) {
   // Iterate through k-mers and check HD for each pair
   uint64_t mask = (kVal == 32) ? ~0ULL : ((1ULL << (2 * kVal)) - 1);
   //cout << ("%d" , seqLen) << endl;
-  if(*kmerList == 'n')
+  if(*kmerList == 'y')
   {
     uint64_t kmer1 = 0;
     for (int i=0; i<kVal-1; i++)
@@ -267,47 +271,37 @@ int main(int argc, char* argv[]) {
   }
   else
   {
-    int numKmers = (seqLen-kVal)+1;
-    uint64_t *kmers = (uint64_t *)calloc(numKmers , 2*kVal);
-    //cout << ("%d" , (seqLen-kVal)+1) << endl;
     uint64_t kmer1 = 0;
     for (int i=0; i<kVal-1; i++)
     {
-      //int c = seq_nt4_table[(uint8_t)charSeq[i]];
-      #ifndef compress
-      int c = seq[i];
-      #endif
-      #ifdef compress
-      int c = seq[i/(sizeof(char)*4)];
-      c = (c >> (i*2)) % 4;
-      #endif
+      int c = seq_nt4_table[(uint8_t)charSeq[i]];
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
     }
-    // extract all k-mers
-    int count = 0;
-    for(int i=kVal-1; i<seqLen; i++)
+    //cout << ("%c" , seq) << endl;
+    //int c = seq_nt4_table[(uint8_t)seq[0]];
+    for (int i=kVal-1; i<seqLen; i++)
     {
-      //int c = seq_nt4_table[(uint8_t)charSeq[i]];
-      #ifndef compress
-      int c = seq[i];
-      #endif
-      #ifdef compress
-      int c = seq[i/(sizeof(char)*4)];
-      c = (c >> (i*2)) % 4;
-      #endif
+      //cout << "hi";
+      int c = seq_nt4_table[(uint8_t)charSeq[i]];
+      //int c = (uint8_t)seq[i];
+      //cout << ("%d" , c) << endl;
+      //cout << "?" << endl;
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
-      kmers[count] = kmer1;
-      //cout << ("%d" , kmers[numKmers]) << endl;
-      count ++;
-    }
-    // Check HD of all k-mer pairs
-    for (int i=0; i<numKmers-1; i++)
-    {
-      kmer1 = kmers[i];
-      uint64_t kmer2 = 0;
-      for (int j=i+1; j<numKmers; j++)
+      //cout << "hi";
+      //uint64_t kmer2 = 0;
+      uint64_t kmer2 = kmer1;
+      /*for (int j=i-kVal+1; j<i+1; j++)
       {
-        kmer2 = kmers[j];
+        int c = seq_nt4_table[(uint8_t)seq[j]];
+        kmer2 = ((kmer2 << 2) | (uint64_t)c) & mask;
+      }*/
+      //cout << ("%d" , kmer1) << endl;
+      //cout << ("%s" , charSeq[i]) << endl;
+      for (int j=i+1; j<seqLen; j++)
+      {
+        //cout << "hi";
+        int c2 = seq_nt4_table[(uint8_t)charSeq[j]];
+        kmer2 = ((kmer2 << 2) | (uint64_t)c2) & mask;
         //cout << (kmer1) << "," << (kmer2) << endl;
         #ifdef XOR
           dists[hdXOR(kmer1  , kmer2 , kVal)] ++;
@@ -321,6 +315,7 @@ int main(int argc, char* argv[]) {
   }
   
   free(seq);
+  delete [] charSeq;
   output(dists , kVal);
   free(dists);
   return 0;
