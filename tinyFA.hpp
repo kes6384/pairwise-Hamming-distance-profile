@@ -16,7 +16,7 @@ typedef off_t off_type;
 #else
 #define ftell64(a) ftello(a)
 #define fseek64(a, b, c) fseeko(a, b, c)
-typedef _off64_t off_type;
+typedef off64_t off_type;
 #endif
 
 #include "pliib.hpp"
