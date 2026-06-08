@@ -10,6 +10,7 @@
 #include "pliib.hpp"
 
 #define popcount // XOR or popcount, choose HD calculation method
+//#define compress
 
 using namespace std;
 using namespace TFA;
@@ -157,12 +158,42 @@ int main(int argc, char* argv[]) {
   getSeq(charSeq , file , seqLen , contigName);
   //cout << "hi";
 
-  int* seq = (int *)calloc(seqLen , sizeof(int));
   //cout << ("%d" , (int)strlen(charSeq)) << endl;
+  // 2-bit encoding
+  #ifndef compress
+  int* seq = (int *)calloc(seqLen , sizeof(int));
+  // Store as array of integers, each int is one encoded character
   for (int i=0; i<seqLen; i++)
   {
     seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
   }
+  #endif
+  #ifdef compress
+  // Store as array of bytes, each byte contains multiple encoded characters
+  // Could be faster to use a larger type instead of 1 byte characters
+  char* seq = (char *)calloc(((seqLen)/(sizeof(char)*4))+1 , sizeof(char));
+  for (int i=0; i<((seqLen)/(sizeof(char)*4))+1; i++)
+  {
+    //cout << ("%d" , i) << endl;
+    char entry = 0;
+    //cout << ("%c" , entry) << endl;
+    // One byte can fit 4 2-bit encoded characters
+    int count = 0;
+    for (int j=i*(sizeof(char)*4); j<seqLen; j++)
+    {
+      //cout << ("%d" , j) << endl;
+      //cout << ("%d" , (uint8_t)charSeq[j]) << endl;
+      //cout << ("%f" , seq_nt4_table[(uint8_t)charSeq[j]] ) << endl;
+      entry = entry || (seq_nt4_table[(uint8_t)charSeq[j]] << count);
+      count ++;
+      if(count >= sizeof(char)*4)
+        break;
+    }
+    //cout << ("%s" , entry) << endl;
+    seq[i] = entry;
+  }
+  //cout << ("%s" , *seq) << endl;
+  #endif
   //delete [] charSeq;
   
   // Iterate through k-mers and check HD for each pair
@@ -174,7 +205,14 @@ int main(int argc, char* argv[]) {
     for (int i=0; i<kVal-1; i++)
     {
       //int c = seq_nt4_table[(uint8_t)charSeq[i]];
+      #ifndef compress
       int c = seq[i];
+      #endif
+      #ifdef compress
+      int c = seq[i/(sizeof(char)*4)];
+      c = (c >> (i*2)) % 4;
+      //c = c % 2*((i+1)-(i/(sizeof(char)*4)));
+      #endif
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
     }
     //cout << ("%c" , seq) << endl;
@@ -183,7 +221,13 @@ int main(int argc, char* argv[]) {
     {
       //cout << "hi";
       //int c = seq_nt4_table[(uint8_t)charSeq[i]];
+      #ifndef compress
       int c = seq[i];
+      #endif
+      #ifdef compress
+      int c = seq[i/(sizeof(char)*4)];
+      c = (c >> (i*2)) % 4;
+      #endif
       //int c = (uint8_t)seq[i];
       //cout << ("%d" , c) << endl;
       //cout << "?" << endl;
@@ -202,7 +246,13 @@ int main(int argc, char* argv[]) {
       {
         //cout << "hi";
         //int c2 = seq_nt4_table[(uint8_t)charSeq[j]];
+        #ifndef compress
         int c2 = seq[j];
+        #endif
+        #ifdef compress
+        int c2 = seq[j/(sizeof(char)*4)];
+        c2 = (c >> (j*2)) % 4;
+        #endif
         kmer2 = ((kmer2 << 2) | (uint64_t)c2) & mask;
         //cout << (kmer1) << "," << (kmer2) << endl;
         #ifdef XOR
@@ -224,7 +274,13 @@ int main(int argc, char* argv[]) {
     for (int i=0; i<kVal-1; i++)
     {
       //int c = seq_nt4_table[(uint8_t)charSeq[i]];
+      #ifndef compress
       int c = seq[i];
+      #endif
+      #ifdef compress
+      int c = seq[i/(sizeof(char)*4)];
+      c = (c >> (i*2)) % 4;
+      #endif
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
     }
     // extract all k-mers
@@ -232,7 +288,13 @@ int main(int argc, char* argv[]) {
     for(int i=kVal-1; i<seqLen; i++)
     {
       //int c = seq_nt4_table[(uint8_t)charSeq[i]];
+      #ifndef compress
       int c = seq[i];
+      #endif
+      #ifdef compress
+      int c = seq[i/(sizeof(char)*4)];
+      c = (c >> (i*2)) % 4;
+      #endif
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
       kmers[count] = kmer1;
       //cout << ("%d" , kmers[numKmers]) << endl;
