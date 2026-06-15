@@ -6,8 +6,11 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
-#include "tinyFA.hpp"  // FASTA file parser: https://github.com/edawson/tinyFA
-#include "pliib.hpp"
+#include <cstdint>
+#include <cstring>
+#include "parseFASTA.cpp" // Simple FASTA parser
+//#include "tinyFA.hpp"  // FASTA file parser: https://github.com/edawson/tinyFA
+//#include "pliib.hpp"
 
 #define POPCOUNT // XOR or popcount, choose HD calculation method
 #if defined(XOR)
@@ -19,7 +22,7 @@
 #endif
 
 using namespace std;
-using namespace TFA;
+//using namespace TFA;
 
 // Masks used for popcount method
 uint64_t popMask;
@@ -44,20 +47,12 @@ const unsigned char seq_nt4_table[256] = { // translate ACGT to 0123
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
-// Use tinyFA library to parse FASTA file
+// parse FASTA file using parseFASTA.cpp
 // Sequence is stored in seq and is of length len
-void getSeq(char*& seq, char* file, int len, char* contigName)
+void getSeq(char* seq, char* file, int len)
 {
-  tiny_faidx_t tf;
-  // Check if an index exists, and create one if not.
-  if (!checkFAIndexFileExists(file)){
-      createFAIndex(file, tf);
-  }
-  else{
-      // Parses an FAI file when passed a FASTA file name.
-      parseFAIndex(file, tf);
-  }
-  getSequence(tf, contigName, seq, 0, len);
+  getSequence(file, len, seq);
+  //cout << ("%s" , seq);
 }
 
 // Compute Hamming distance between kmer1 and kmer2
@@ -134,9 +129,8 @@ int main(int argc, char* argv[]) {
   unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(int));
 
   // Parse FASTA file to get sequence
-  char *charSeq;
-  getSeq(charSeq , file , seqLen , contigName);
-  cout << ("%d" , strlen(charSeq)) << endl;
+  char *charSeq = (char *)malloc(seqLen + 1);
+  getSeq(charSeq , file , seqLen);
 
   // 2-bit encoding
   int* seq = (int *)calloc(seqLen , sizeof(int));
@@ -195,7 +189,7 @@ int main(int argc, char* argv[]) {
   }
   
   free(seq);
-  delete [] charSeq;
+  free(charSeq);
   output(dists , kVal);
   free(dists);
   return 0;
