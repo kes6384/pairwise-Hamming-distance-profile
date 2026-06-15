@@ -12,7 +12,7 @@
 //#include "tinyFA.hpp"  // FASTA file parser: https://github.com/edawson/tinyFA
 //#include "pliib.hpp"
 
-#define POPCOUNT // XOR or popcount, choose HD calculation method
+#define XOR // XOR or popcount, choose HD calculation method
 #if defined(XOR)
     #define HD_FUNC hdXOR
 #elif defined(POPCOUNT)
@@ -113,14 +113,12 @@ void output(unsigned int *dists , int len)
   out.close();
 }
 
-//command line args: file name, seqLen, k, kmerList (y, n), sequence name
+//command line args: file name, seqLen, k, kmerList (y, n)
 int main(int argc, char* argv[]) {
   char* file = argv[1];
   int seqLen = atoi(argv[2]); // Sequence length
   int kVal = atoi(argv[3]); // k-mer length
   char* kmerList = argv[4]; // If sequence should be bit-encoded before k-mers are extracted
-
-  char* contigName = argv[5]; // Sequence name
 
   popMask = (2.0)*((pow(4 , kVal) - 1)/3.0); // Keep odd bits
   popMask2 = popMask >> 1; // Keep even bits
@@ -147,6 +145,7 @@ int main(int argc, char* argv[]) {
   uint64_t mask = (kVal == 32) ? ~0ULL : ((1ULL << (2 * kVal)) - 1);
   if(*kmerList == 'y')
   {
+    //cout << ("%s" , charSeq) << endl;
     uint64_t kmer1 = 0;
     for (int i=0; i<kVal-1; i++)
     {
