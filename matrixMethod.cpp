@@ -57,11 +57,6 @@ int main(int argc, char* argv[]) {
     Eigen::MatrixXf t(numKmers , kVal);
     Eigen::MatrixXf c(numKmers , kVal);
     Eigen::MatrixXf g(numKmers , kVal);
-    // Transpose matrices
-    Eigen::MatrixXf at(kVal , numKmers);
-    Eigen::MatrixXf tt(kVal , numKmers);
-    Eigen::MatrixXf ct(kVal , numKmers);
-    Eigen::MatrixXf gt(kVal , numKmers);
     /* This part is for when numKmers != kVal. Would also effect later code since have to decompose into squares
     // n > r
     // Change n to the next smallest multiple of r
@@ -90,51 +85,46 @@ int main(int argc, char* argv[]) {
             t(i,index) = 0;
             c(i,index) = 0;
             g(i,index) = 0;
-            at(index,i) = 0;
-            tt(index,i) = 0;
-            ct(index,i) = 0;
-            gt(index,i) = 0;
             if(character == 'A')
             {
                 a(i,index) = 1;
-                at(index,i) = 1;
             }
             if(character == 'T')
             {
                 t(i,index) = 1;
-                tt(index,i) = 1;
             }
             if(character == 'C')
             {
                 c(i,index) = 1;
-                ct(index,i) = 1;
             }
             if(character == 'G')
             {
                 g(i,index) = 1;
-                gt(index,i) = 1;
             }
         }
     }
 
     Eigen::MatrixXf m(numKmers , numKmers);
     
-    //m = m + AeBe for all e in sigma
-    m = m + a*at;
-    m = m + t*tt;
-    m = m + c*ct;
-    m = m + g*gt;
+    //m = m + AeBe for all e in sigma, where B = A transpose
+    m = m + a*a.transpose();
+    m = m + t*t.transpose();
+    m = m + c*c.transpose();
+    m = m + g*g.transpose();
 
+    // Use number of matching characters to get number of mismatched characters
     for(int i=1; i<numKmers; i++)
     {
         for(int j=1; j<numKmers; j++)
         {
             int dist = kVal - m(i,j);
             dists[dist] ++;
+            //cout << ("%d" , dist) << endl;
         }
     }
 
   delete [] charSeq;
-  output(dists , seqLen);
+  output(dists , kVal);
+  free(dists);
   return 0;
 }
