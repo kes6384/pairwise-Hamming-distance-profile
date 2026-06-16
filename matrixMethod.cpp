@@ -137,6 +137,7 @@ int main(int argc, char* argv[]) {
     getSeq(charSeq , file , seqLen);
     
     // Initialize matrices
+    /* naive method
     for (int i=0; i<numKmers; i++)
     {
         for (int j=i; j<kVal+i; j++)
@@ -148,6 +149,38 @@ int main(int argc, char* argv[]) {
             g(i,index) = g_table[(uint8_t)character];
             t(i,index) = tu_table[(uint8_t)character];
         }
+    }*/
+
+    // First row = first k-mer
+    for (int i=0; i<kVal; i++)
+    {
+      uint8_t character = (uint8_t)charSeq[i];
+      a(0,i) = (uint64_t)a_table[character];
+      c(0,i) = (uint64_t)c_table[character];
+      g(0,i) = (uint64_t)g_table[character];
+      t(0,i) = (uint64_t)tu_table[character];
+    }
+    //cout << a.row(0) << endl;
+    /*cout << c.row(0) << endl;
+    cout << g.row(0) << endl;
+    cout << t.row(0) << endl;*/
+    // Next k-mer is previous row shifted to the left with next character in last column
+    for (int i=1; i<numKmers; i++)
+    {
+      uint8_t character = (uint8_t)charSeq[kVal+i-1];
+
+      a.block(i,0,1,kVal-1) = a.block(i-1,1,1,kVal-1);
+      a(i,kVal-1) = (uint64_t)a_table[character];
+      //cout << a.row(i) << endl;
+
+      c.block(i,0,1,kVal-1) = c.block(i-1,1,1,kVal-1);
+      c(i,kVal-1) = (uint64_t)c_table[character];
+
+      g.block(i,0,1,kVal-1) = g.block(i-1,1,1,kVal-1);
+      g(i,kVal-1) = (uint64_t)g_table[character];
+
+      t.block(i,0,1,kVal-1) = t.block(i-1,1,1,kVal-1);
+      t(i,kVal-1) = (uint64_t)tu_table[character];
     }
 
     Eigen::MatrixXf m(numKmers , numKmers);
