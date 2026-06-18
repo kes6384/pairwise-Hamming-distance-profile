@@ -183,22 +183,26 @@ int main(int argc, char* argv[]) {
       t(i,kVal-1) = (uint64_t)tu_table[character];
     }
 
-    Eigen::MatrixXf m(numKmers , numKmers);
-    
+    Eigen::MatrixXf m = Eigen::MatrixXf::Zero(numKmers , numKmers);
+
     //m = m + AeBe for all e in sigma, where B = A transpose
-    m = m + a*a.transpose();
-    m = m + t*t.transpose();
-    m = m + c*c.transpose();
-    m = m + g*g.transpose();
+    m += (a*a.transpose()).triangularView<Eigen::Lower>();
+    m += (t*t.transpose()).triangularView<Eigen::Lower>();
+    m += (c*c.transpose()).triangularView<Eigen::Lower>();
+    m += (g*g.transpose()).triangularView<Eigen::Lower>();
 
     // Use number of matching characters to get number of mismatched characters
     for(int i=1; i<numKmers; i++)
     {
         for(int j=1; j<numKmers; j++)
         {
+          // Only look at lower triangle for results
+          if(i >= j)
+          {
             int dist = kVal - m(i,j);
             dists[dist] ++;
             //cout << ("%d" , dist) << endl;
+          }
         }
     }
 
