@@ -8,6 +8,8 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <bit>
+#include <bitset>
 #include "parseFASTA.cpp" // Simple FASTA parser
 //#include "tinyFA.hpp"  // FASTA file parser: https://github.com/edawson/tinyFA
 //#include "pliib.hpp"
@@ -93,7 +95,7 @@ int hdPC(uint64_t kmer1, uint64_t kmer2 , int k)
   // popcount(~nor) = number of characters that did not match
   // ~nor = or
   uint64_t orResult = xor_firstBits | xor_secondBits;
-  dist = __builtin_popcount(orResult);
+  dist = std::popcount(orResult);
   return dist;
 }
 
@@ -120,7 +122,7 @@ int main(int argc, char* argv[]) {
   int kVal = atoi(argv[3]); // k-mer length
   char* kmerList = argv[4]; // If sequence should be bit-encoded before k-mers are extracted
 
-  popMask = (2.0)*((pow(4 , kVal) - 1)/3.0); // Keep odd bits
+  popMask = (2.0)*((pow((long double)4 , (long double)kVal) - 1)/3.0); // Keep odd bits
   popMask2 = popMask >> 1; // Keep even bits
 
   // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
