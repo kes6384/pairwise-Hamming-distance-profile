@@ -14,7 +14,7 @@
 //#include "tinyFA.hpp"  // FASTA file parser: https://github.com/edawson/tinyFA
 //#include "pliib.hpp"
 
-#define XOR // XOR or popcount, choose HD calculation method
+#define POPCOUNT // XOR or popcount, choose HD calculation method
 #if defined(XOR)
     #define HD_FUNC hdXOR
 #elif defined(POPCOUNT)
@@ -115,12 +115,12 @@ void output(unsigned int *dists , int len)
   out.close();
 }
 
-//command line args: file name, seqLen, k, kmerList (y, n)
+//command line args: file name, seqLen, k
 int main(int argc, char* argv[]) {
   char* file = argv[1];
   int seqLen = atoi(argv[2]); // Sequence length
   int kVal = atoi(argv[3]); // k-mer length
-  char* kmerList = argv[4]; // If sequence should be bit-encoded before k-mers are extracted
+  char kmerList = 'y'; // If sequence should be bit-encoded before k-mers are extracted
 
   popMask = (2.0)*((pow((long double)4 , (long double)kVal) - 1)/3.0); // Keep odd bits
   popMask2 = popMask >> 1; // Keep even bits
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
   // 2-bit encoding
   int* seq = (int *)calloc(seqLen , sizeof(int));
   // Store as array of integers, each int is one encoded character
-  if (*kmerList == 'y')
+  if (kmerList == 'y')
   {
     for (int i=0; i<seqLen; i++)
     {
@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
   
   // Iterate through k-mers and check HD for each pair
   uint64_t mask = (kVal == 32) ? ~0ULL : ((1ULL << (2 * kVal)) - 1);
-  if(*kmerList == 'y')
+  if(kmerList == 'y')
   {
     //cout << ("%s" , charSeq) << endl;
     uint64_t kmer1 = 0;
