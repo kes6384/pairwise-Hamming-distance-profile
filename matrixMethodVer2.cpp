@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
 
     delete [] charSeq;
 
-    Eigen::MatrixXf m = Eigen::MatrixXf::Zero(numKmers , numKmers).triangularView<Eigen::Lower>();
+    Eigen::MatrixXf m(numKmers , numKmers);
 
     //m = m + AeBe for all e in sigma, where B = A transpose
     m = (kmers*kmers.transpose()).triangularView<Eigen::Lower>();
