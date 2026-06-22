@@ -194,15 +194,11 @@ int main(int argc, char* argv[]) {
     // Use number of matching characters to get number of mismatched characters
     for(int i=1; i<numKmers; i++)
     {
-        for(int j=1; j<numKmers; j++)
+        // Only look at lower triangle for results
+        for(int j=i; j<numKmers; j++)
         {
-          // Only look at lower triangle for results
-          if(i >= j)
-          {
-            int dist = kVal - m(i,j);
-            dists[dist] ++;
-            //cout << ("%d" , dist) << endl;
-          }
+          int dist = kVal - m(j,i);
+          dists[dist] ++;
         }
     }
 
