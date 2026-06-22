@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
 
     // One large matrix containing masked k-mers for each base
     // stored in order: a, c, g, t
-    Eigen::MatrixXi kmers(numKmers , kVal*4);
+    Eigen::MatrixXf kmers(numKmers , kVal*4);
 
      // Parse FASTA file to get sequence
     char *charSeq = (char *)malloc(seqLen + 1);
@@ -144,6 +144,7 @@ int main(int argc, char* argv[]) {
       kmers(0,(i+(2*kVal))) = (uint64_t)g_table[character]; //g
       kmers(0,(i+(3*kVal))) = (uint64_t)tu_table[character]; //t
     }
+
     // Next k-mer is previous row shifted to the left with next character in last column
     for (int i=1; i<numKmers; i++)
     {
@@ -164,7 +165,7 @@ int main(int argc, char* argv[]) {
 
     delete [] charSeq;
 
-    Eigen::MatrixXi m = Eigen::MatrixXi::Zero(numKmers , numKmers).triangularView<Eigen::Lower>();
+    Eigen::MatrixXf m = Eigen::MatrixXf::Zero(numKmers , numKmers).triangularView<Eigen::Lower>();
 
     //m = m + AeBe for all e in sigma, where B = A transpose
     m = (kmers*kmers.transpose()).triangularView<Eigen::Lower>();
