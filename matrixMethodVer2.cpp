@@ -139,10 +139,10 @@ int main(int argc, char* argv[]) {
     for (int i=0; i<kVal; i++)
     {
       uint8_t character = (uint8_t)charSeq[i];
-      kmers(0,i) = (uint64_t)a_table[character]; //a
-      kmers(0,(i+kVal)) = (uint64_t)c_table[character]; //c
-      kmers(0,(i+(2*kVal))) = (uint64_t)g_table[character]; //g
-      kmers(0,(i+(3*kVal))) = (uint64_t)tu_table[character]; //t
+      kmers(0,i) = (float)a_table[character]; //a
+      kmers(0,(i+kVal)) = (float)c_table[character]; //c
+      kmers(0,(i+(2*kVal))) = (float)g_table[character]; //g
+      kmers(0,(i+(3*kVal))) = (float)tu_table[character]; //t
     }
 
     // Next k-mer is previous row shifted to the left with next character in last column
@@ -150,17 +150,19 @@ int main(int argc, char* argv[]) {
     {
       uint8_t character = (uint8_t)charSeq[kVal+i-1];
 
-      kmers.block(i,0,1,kVal-1) = kmers.block(i-1,1,1,kVal-1);
-      kmers(i,kVal-1) = (uint64_t)a_table[character];
+      kmers.block(i,0,1,((kVal*4)-1)) = kmers.block(i-1,1,1,((kVal*4)-1));
 
-      kmers.block(i,kVal,1,kVal-1) = kmers.block(i-1,kVal+1,1,kVal-1);
-      kmers(i,(2*kVal)-1) = (uint64_t)c_table[character];
+      //kmers.block(i,0,1,kVal-1) = kmers.block(i-1,1,1,kVal-1);
+      kmers(i,kVal-1) = (float)a_table[character];
 
-      kmers.block(i,2*kVal,1,kVal-1) = kmers.block(i-1,(2*kVal)+1,1,kVal-1);
-      kmers(i,(3*kVal)-1) = (uint64_t)g_table[character];
+      //kmers.block(i,kVal,1,kVal-1) = kmers.block(i-1,kVal+1,1,kVal-1);
+      kmers(i,(2*kVal)-1) = (float)c_table[character];
 
-      kmers.block(i,3*kVal,1,kVal-1) = kmers.block(i-1,(3*kVal)+1,1,kVal-1);
-      kmers(i,(4*kVal)-1) = (uint64_t)tu_table[character];
+      //kmers.block(i,2*kVal,1,kVal-1) = kmers.block(i-1,(2*kVal)+1,1,kVal-1);
+      kmers(i,(3*kVal)-1) = (float)g_table[character];
+
+      //kmers.block(i,3*kVal,1,kVal-1) = kmers.block(i-1,(3*kVal)+1,1,kVal-1);
+      kmers(i,(4*kVal)-1) = (float)tu_table[character];
     }
 
     delete [] charSeq;
@@ -171,10 +173,10 @@ int main(int argc, char* argv[]) {
     m = (kmers*kmers.transpose()).triangularView<Eigen::Lower>();
 
     // Use number of matching characters to get number of mismatched characters
-    for(int i=1; i<numKmers; i++)
+    for(int i=0; i<numKmers; i++)
     {
         // Only look at lower triangle for results
-        for(int j=i; j<numKmers; j++)
+        for(int j=i+1; j<numKmers; j++)
         {
           int dist = kVal - m(j,i);
           dists[dist] ++;

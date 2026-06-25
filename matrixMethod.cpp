@@ -10,6 +10,7 @@
 // https://libeigen.gitlab.io/
 #include <iostream>
 #include <Eigen/Dense>
+#include <Eigen/SparseCore>
 
 using namespace std;
 
@@ -114,6 +115,8 @@ void output(unsigned int *dists , int len)
 
 //command line args: file name, seqLen, k
 int main(int argc, char* argv[]) {
+    Eigen::initParallel(); // initialize Eigen library for multithreading
+
     char* file = argv[1];
     int seqLen = atoi(argv[2]); // Sequence length
     int kVal = atoi(argv[3]); // k-mer length
@@ -183,26 +186,28 @@ int main(int argc, char* argv[]) {
       t(i,kVal-1) = (uint64_t)tu_table[character];
     }
 
-    Eigen::MatrixXf m = Eigen::MatrixXf::Zero(numKmers , numKmers);
+    delete [] charSeq;
+
+    Eigen::MatrixXf m = Eigen::MatrixXf::Zero(numKmers , numKmers).triangularView<Eigen::Lower>();
 
     //m = m + AeBe for all e in sigma, where B = A transpose
-    m += (a*a.transpose()).triangularView<Eigen::Lower>();
+    m = (a*a.transpose()).triangularView<Eigen::Lower>();
     m += (t*t.transpose()).triangularView<Eigen::Lower>();
     m += (c*c.transpose()).triangularView<Eigen::Lower>();
     m += (g*g.transpose()).triangularView<Eigen::Lower>();
 
     // Use number of matching characters to get number of mismatched characters
-    for(int i=1; i<numKmers; i++)
+    // Use number of matching characters to get number of mismatched characters
+    for(int i=0; i<numKmers; i++)
     {
         // Only look at lower triangle for results
-        for(int j=i; j<numKmers; j++)
+        for(int j=i+1; j<numKmers; j++)
         {
           int dist = kVal - m(j,i);
           dists[dist] ++;
         }
     }
 
-  delete [] charSeq;
   output(dists , kVal);
   free(dists);
   return 0;
