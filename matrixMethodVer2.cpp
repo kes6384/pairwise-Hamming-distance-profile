@@ -92,9 +92,9 @@ const unsigned char tu_table[256] = { // translate T/U to 1
 
 // parse FASTA file using parseFASTA.cpp
 // Sequence is stored in seq and is of length len
-void getSeq(char* seq, char* file, int len)
+int getSeq(char* seq, char* file, int len)
 {
-  getSequence(file, len, seq);
+  return getSequence(file, len, seq);
 }
 
 // Output array of Hamming distance counts to a text file
@@ -122,18 +122,17 @@ int main(int argc, char* argv[]) {
     // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
     //unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(int));
 
-    int numKmers = (seqLen - kVal) + 1;
-
     // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
     unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(int));
+
+     // Parse FASTA file to get sequence
+    char *charSeq = (char *)malloc(seqLen + 1);
+    int retrievedLen = getSeq(charSeq , file , seqLen);
+    int numKmers = (retrievedLen - kVal) + 1;
 
     // One large matrix containing masked k-mers for each base
     // stored in order: a, c, g, t
     Eigen::MatrixXf kmers(numKmers , kVal*4);
-
-     // Parse FASTA file to get sequence
-    char *charSeq = (char *)malloc(seqLen + 1);
-    getSeq(charSeq , file , seqLen);
 
     // First row = first k-mer
     for (int i=0; i<kVal; i++)

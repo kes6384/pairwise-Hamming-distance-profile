@@ -53,9 +53,9 @@ const unsigned char seq_nt4_table[256] = { // translate ACGT to 0123
 
 // parse FASTA file using parseFASTA.cpp
 // Sequence is stored in seq and is of length len
-void getSeq(char* seq, char* file, int len)
+int getSeq(char* seq, char* file, int len)
 {
-  getSequence(file, len, seq);
+  return getSequence(file, len, seq);
   //cout << ("%s" , seq);
 }
 
@@ -135,20 +135,20 @@ int main(int argc, char* argv[]) {
 
   // Parse FASTA file to get sequence
   char *charSeq = (char *)malloc(seqLen + 1);
-  getSeq(charSeq , file , seqLen);
+  int retrievedLen = getSeq(charSeq , file , seqLen);
 
   // 2-bit encoding
-  int* seq = (int *)calloc(seqLen , sizeof(int));
+  int* seq = (int *)calloc(retrievedLen , sizeof(int));
   // Store as array of integers, each int is one encoded character
   if (kmerList == 'y')
   {
-    for (int i=0; i<seqLen; i++)
+    for (int i=0; i<retrievedLen; i++)
     {
       seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
     }
   }
 
-  int numKmers = (seqLen - kVal) + 1;
+  int numKmers = (retrievedLen - kVal) + 1;
   uint64_t *kmers = (uint64_t*)calloc(numKmers , sizeof(uint64_t));
 
   // Iterate through k-mers and check HD for each pair
@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
     }
     int count = 0;
-    for (int i=kVal-1; i<seqLen; i++)
+    for (int i=kVal-1; i<retrievedLen; i++)
     {
       int c = seq[i];
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
@@ -171,7 +171,7 @@ int main(int argc, char* argv[]) {
       count ++;
 
       /*uint64_t kmer2 = kmer1;
-      for (int j=i+1; j<seqLen; j++)
+      for (int j=i+1; j<retrievedLen; j++)
       {
         int c2 = seq[j];
         kmer2 = ((kmer2 << 2) | (uint64_t)c2) & mask;
