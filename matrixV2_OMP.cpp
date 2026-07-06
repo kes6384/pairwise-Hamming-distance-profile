@@ -1,5 +1,6 @@
 //Algorithm for finding the Hammond Distance profile of a given sequence
 //Uses matrix multiplication in an attempt to inmprove speed
+//Multithreaded
 //Takes FASTA files as input
 //Outputs a text file representing the histogram of Hammond Distances between k-mers
 

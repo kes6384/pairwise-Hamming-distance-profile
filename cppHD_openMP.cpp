@@ -1,5 +1,5 @@
 //Algorithm for finding the Hammond Distance profile of a given sequence
-//Includes XOR and popcount methods
+//Multithreaded popcount method
 //Takes FASTA files as input
 //Outputs a text file representing the histogram of Hammond Distances between k-mers
 
