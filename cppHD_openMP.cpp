@@ -216,6 +216,7 @@ int main(int argc, char* argv[]) {
   
   free(seq);
   free(charSeq);
+  free(kmers);
   output(dists , kVal);
   return 0;
 }
