@@ -10,6 +10,8 @@
 #include <cstring>
 #include <bit>
 #include <bitset>
+#include <random>
+#include "MurmurHash3.cpp"
 #include "parseFASTA.cpp" // Simple FASTA parser
 //#include "tinyFA.hpp"  // FASTA file parser: https://github.com/edawson/tinyFA
 //#include "pliib.hpp"
@@ -80,26 +82,30 @@ int hdPC(uint64_t kmer1, uint64_t kmer2 , int k)
 // dists - array of Hamming distance counts
 // len - length of array of Hamming distance counts (equivalent to k-mer size + 1, since HD ranges from 0 to k)
 // rate - sampling rate (theta1 * theta2)
-void output(unsigned int *dists , int len , float rate)
+void output(unsigned int *dists , int len , float rate , char* outFile)
 {
-  ofstream out("sketch_HD.txt");
+  ofstream out(outFile);
 
+  //cout << ("%f" , rate) << endl;
   out << "Hamming Distance : Number of Pairs" << endl;
   for(int i=0; i<=len; i++)
   {
-      out << ("%d" , i) << (" : ") << ("%d" , (int)(dists[i]/(2 * rate))) << endl;
+      out << ("%d" , i) << (" : ") << ("%d" , (int)((float)dists[i]/(2.0 * rate))) << endl;
   }
 
   out.close();
 }
 
-//command line args: file name, seqLen, k, sampling rate 1, 2
+//command line args: input file name, seqLen, k, sampling rate 1, 2, output file
 int main(int argc, char* argv[]) {
   char* file = argv[1];
   int seqLen = atoi(argv[2]); // Sequence length
   int kVal = atoi(argv[3]); // k-mer length
   double theta1 = atof(argv[4]); // sampling rate
   double theta2 = atof(argv[5]); // sampling rate
+  std::random_device rd;
+  uint32_t seed1 = rd();
+  uint32_t seed2 = rd();
 
   popMask = (2.0)*((pow((long double)4 , (long double)kVal) - 1)/3.0); // Keep odd bits
   popMask2 = popMask >> 1; // Keep even bits
@@ -134,24 +140,32 @@ int main(int argc, char* argv[]) {
     }
     int countRow = 0;
     int countCol = 0;
+    uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
     for (int i=kVal-1; i<retrievedLen; i++)
     {
       int c = seq[i];
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
-      float hashed = (float)(std::hash<uint64_t>{}(kmer1))/(float)UINT64_MAX;
-      if(hashed < theta1)
+      MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
+      float hash = (float)(*hashed) / (float)(UINT32_MAX);
+      //float hashed = (float)(std::hash<uint64_t>{}(kmer1))/(float)UINT64_MAX;
+      //cout << ("%f" , hash) << endl;
+      if(hash < theta1)
       {
         kmersRow[countRow] = kmer1;
         countRow ++;
       }
-      if(hashed < theta2)
+      // Different seeds for row and column for independence
+      MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed2 , hashed);
+      hash = (float)(hash) / (float)(UINT32_MAX);
+      if(hash < theta2)
       {
         kmersCol[countCol] = kmer1;
         countCol ++;
       }
     }
+    free(hashed);
 
-    // Calcilate HD for sampled k-mers
+    // Calculate HD for sampled k-mers
     for(int i=0; i<countRow; i++)
     {
       uint64_t kmer1 = kmersRow[i];
@@ -166,7 +180,7 @@ int main(int argc, char* argv[]) {
   free(charSeq);
   free(kmersRow);
   free(kmersCol);
-  output(dists , kVal , (theta1*theta2));
+  output(dists , kVal , (theta1*theta2) , argv[6]);
   free(dists);
   return 0;
 }

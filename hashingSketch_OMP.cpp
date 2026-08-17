@@ -13,6 +13,7 @@
 #include <bitset>
 #include <omp.h>
 #include <vector>
+#include "MurmurHash3.cpp"
 #include "parseFASTA.cpp" // Simple FASTA parser
 //#include "tinyFA.hpp"  // FASTA file parser: https://github.com/edawson/tinyFA
 //#include "pliib.hpp"
@@ -136,24 +137,30 @@ int main(int argc, char* argv[]) {
     }
     int countRow = 0;
     int countCol = 0;
+    uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
     for (int i=kVal-1; i<retrievedLen; i++)
     {
       int c = seq[i];
       kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
-      float hashed = (float)(std::hash<uint64_t>{}(kmer1))/(float)UINT64_MAX;
-      if(hashed < theta1)
+      MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , 1 , hashed);
+      float hash = (float)(*hashed) / (float)(UINT32_MAX);
+      //float hashed = (float)(std::hash<uint64_t>{}(kmer1))/(float)UINT64_MAX;
+      if(hash < theta1)
       {
         kmersRow[countRow] = kmer1;
         countRow ++;
       }
-      if(hashed < theta2)
+      MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , 2 , hashed);
+      float hash = (float)(*hashed) / (float)(UINT32_MAX);
+      if(hash < theta2)
       {
         kmersCol[countCol] = kmer1;
         countCol ++;
       }
     }
+    free(hashed);
 
-    // Calcilate HD for sampled k-mers
+    // Calculate HD for sampled k-mers
     std::vector<vector<uint64_t>> local_dists(numThreads , vector<uint64_t>(kVal + 1 , 0));
 
     #pragma omp parallel
@@ -183,6 +190,6 @@ int main(int argc, char* argv[]) {
   free(charSeq);
   free(kmersRow);
   free(kmersCol);
-  output(dists , kVal , (theta1*theta2));
+  output(dists , kVal , (1));
   return 0;
 }
