@@ -1,7 +1,7 @@
 //Algorithm for finding the Hammond Distance profile of a given sequence
 //Uses popcount method
 //Includes sketching and multithreaded options
-//Takes FASTA files as input
+//Takes FASTA files as input and supports k<=128
 //Outputs a text file representing the histogram of Hammond Distances between k-mers
 
 #include <iostream>
@@ -24,6 +24,12 @@
 
 using namespace std;
 //using namespace TFA;
+
+// Struct for storing k-mers with k <= 128
+struct uint128 {
+    // Each k-mer is 2-bit encoded, so 128 characters needs 256 bits
+    uint64_t fullKmer[4] = {0,0,0,0};
+};
 
 // Masks used for popcount method
 uint64_t popMask;
@@ -57,26 +63,64 @@ int getSeq(char* seq, char* file, int len)
 
 // Returns HD of kmer1 and kmer2
 // Uses bit manipulation and popcount
-int hdPC(uint64_t kmer1, uint64_t kmer2 , int k)
+int hdPC(uint128 kmer1, uint128 kmer2 , int k)
 {
   int dist = 0;
   // Mask bits to separate first and second bits of each character for each subsequence
-  uint64_t subseq1_oddBit = kmer1 & popMask;
-  uint64_t subseq2_oddBit = kmer2 & popMask;
-  uint64_t subseq1_evenBit = kmer1 & (popMask2);
-  uint64_t subseq2_evenBit = kmer2 & (popMask2);
+  uint128 subseq1_oddBit;
+  uint128 subseq1_evenBit;
+  uint128 subseq2_oddBit;
+  uint128 subseq2_evenBit;
+
+  subseq1_oddBit.fullKmer[0] = kmer1.fullKmer[0] & popMask;
+  subseq1_oddBit.fullKmer[1] = kmer1.fullKmer[1] & popMask;
+  subseq1_oddBit.fullKmer[2] = kmer1.fullKmer[2] & popMask;
+  subseq1_oddBit.fullKmer[3] = kmer1.fullKmer[3] & popMask;
+
+  subseq2_oddBit.fullKmer[0] = kmer2.fullKmer[0] & popMask;
+  subseq2_oddBit.fullKmer[1] = kmer2.fullKmer[1] & popMask;
+  subseq2_oddBit.fullKmer[2] = kmer2.fullKmer[2] & popMask;
+  subseq2_oddBit.fullKmer[3] = kmer2.fullKmer[3] & popMask;
+
+  subseq1_evenBit.fullKmer[0] = kmer1.fullKmer[0] & popMask2;
+  subseq1_evenBit.fullKmer[1] = kmer1.fullKmer[1] & popMask2;
+  subseq1_evenBit.fullKmer[2] = kmer1.fullKmer[2] & popMask2;
+  subseq1_evenBit.fullKmer[3] = kmer1.fullKmer[3] & popMask2;
+
+  subseq2_evenBit.fullKmer[0] = kmer2.fullKmer[0] & popMask2;
+  subseq2_evenBit.fullKmer[1] = kmer2.fullKmer[1] & popMask2;
+  subseq2_evenBit.fullKmer[2] = kmer2.fullKmer[2] & popMask2;
+  subseq2_evenBit.fullKmer[3] = kmer2.fullKmer[3] & popMask2;
 
   // XOR each masked subsequence to compare first and second bits
   // XOR result is 0 if the bits match
-  uint64_t xor_firstBits = subseq1_oddBit ^ subseq2_oddBit;
-  uint64_t xor_secondBits = (subseq1_evenBit ^ subseq2_evenBit) << 1;
+  uint128 xor_firstBits;
+  uint128 xor_secondBits;
+
+  xor_firstBits.fullKmer[0] = subseq1_oddBit.fullKmer[0] ^ subseq2_oddBit.fullKmer[0];
+  xor_firstBits.fullKmer[1] = subseq1_oddBit.fullKmer[1] ^ subseq2_oddBit.fullKmer[1];
+  xor_firstBits.fullKmer[2] = subseq1_oddBit.fullKmer[2] ^ subseq2_oddBit.fullKmer[2];
+  xor_firstBits.fullKmer[3] = subseq1_oddBit.fullKmer[3] ^ subseq2_oddBit.fullKmer[3];
+
+  xor_secondBits.fullKmer[0] = (subseq1_evenBit.fullKmer[0] ^ subseq2_evenBit.fullKmer[0]) << 1;
+  xor_secondBits.fullKmer[1] = (subseq1_evenBit.fullKmer[1] ^ subseq2_evenBit.fullKmer[1]) << 1;
+  xor_secondBits.fullKmer[2] = (subseq1_evenBit.fullKmer[2] ^ subseq2_evenBit.fullKmer[2]) << 1;
+  xor_secondBits.fullKmer[3] = (subseq1_evenBit.fullKmer[3] ^ subseq2_evenBit.fullKmer[3]) << 1;
 
   // NOR = 1 if both bits for the character matched = the character matched
   // ~NOR = 1 if the characters did not match
   // popcount(~nor) = number of characters that did not match
   // ~nor = or
-  uint64_t orResult = xor_firstBits | xor_secondBits;
-  dist = std::popcount(orResult);
+  uint128 orResult;
+  orResult.fullKmer[0] = xor_firstBits.fullKmer[0] | xor_secondBits.fullKmer[0];
+  orResult.fullKmer[1] = xor_firstBits.fullKmer[1] | xor_secondBits.fullKmer[1];
+  orResult.fullKmer[2] = xor_firstBits.fullKmer[2] | xor_secondBits.fullKmer[2];
+  orResult.fullKmer[3] = xor_firstBits.fullKmer[3] | xor_secondBits.fullKmer[3];
+
+  dist += std::popcount(orResult.fullKmer[0]);
+  dist += std::popcount(orResult.fullKmer[1]);
+  dist += std::popcount(orResult.fullKmer[2]);
+  dist += std::popcount(orResult.fullKmer[3]);
   return dist;
 }
 
@@ -121,22 +165,35 @@ void output_multithread(std::vector<uint64_t> &dists , int len , float rate , ch
 void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
 {
     // Iterate through k-mers and check HD for each pair
-    uint64_t mask = (kVal == 32) ? ~0ULL : ((1ULL << (2 * kVal)) - 1);
-    uint64_t kmer1 = 0;
+    uint128 mask;
+    mask.fullKmer[0] = (kVal >= 32) ? ~0ULL : ((1ULL << (2 * (kVal))) - 1);
+    mask.fullKmer[1] = (kVal >= 64) ? ~0ULL : ((1ULL << (2 * (kVal-32))) - 1);
+    mask.fullKmer[2] = (kVal >= 96) ? ~0ULL : ((1ULL << (2 * (kVal-64))) - 1);
+    mask.fullKmer[3] = (kVal >= 128) ? ~0ULL : ((1ULL << (2 * (kVal-96))) - 1);
+    uint128 kmer1;
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
+        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
+        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
+        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
     }
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
-        uint64_t kmer2 = kmer1;
+        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
+        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
+        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
+        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        uint128 kmer2 = kmer1;
         for (int j=i+1; j<seqLen; j++)
         {
             int c2 = seq[j];
-            kmer2 = ((kmer2 << 2) | (uint64_t)c2) & mask;
+            kmer2.fullKmer[0] = ((kmer2.fullKmer[0] << 2) | (kmer2.fullKmer[1] >> 62)) & mask.fullKmer[3];
+            kmer2.fullKmer[1] = ((kmer2.fullKmer[1] << 2) | (kmer2.fullKmer[2] >> 62)) & mask.fullKmer[2];
+            kmer2.fullKmer[2] = ((kmer2.fullKmer[2] << 2) | (kmer2.fullKmer[3] >> 62)) & mask.fullKmer[1];
+            kmer2.fullKmer[3] = ((kmer2.fullKmer[3] << 2) | (uint64_t)c2) & mask.fullKmer[0];
             dists[HD_FUNC(kmer1  , kmer2 , kVal)] ++;
         }
     }
@@ -151,15 +208,22 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
     
     // Sample k-mers
     int numKmers = (seqLen - kVal) + 1;
-    uint64_t *kmersRow = (uint64_t*)calloc(numKmers , sizeof(uint64_t));
-    uint64_t *kmersCol = (uint64_t*)calloc(numKmers , sizeof(uint64_t));
+    uint128 *kmersRow = (uint128*)calloc(numKmers , sizeof(uint128));
+    uint128 *kmersCol = (uint128*)calloc(numKmers , sizeof(uint128));
 
-    uint64_t mask = (kVal == 32) ? ~0ULL : ((1ULL << (2 * kVal)) - 1);
-    uint64_t kmer1 = 0;
+    uint128 mask;
+    mask.fullKmer[0] = (kVal >= 32) ? ~0ULL : ((1ULL << (2 * (kVal))) - 1);
+    mask.fullKmer[1] = (kVal >= 64) ? ~0ULL : ((1ULL << (2 * (kVal-32))) - 1);
+    mask.fullKmer[2] = (kVal >= 96) ? ~0ULL : ((1ULL << (2 * (kVal-64))) - 1);
+    mask.fullKmer[3] = (kVal >= 128) ? ~0ULL : ((1ULL << (2 * (kVal-96))) - 1);
+    uint128 kmer1;
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
+        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
+        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
+        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
     }
     int countRow = 0;
     int countCol = 0;
@@ -167,7 +231,10 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
+        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
+        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
+        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
         MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
         float hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta1)
@@ -189,10 +256,10 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
         // Calculate HD for sampled k-mers
         for(int i=0; i<countRow; i++)
         {
-        uint64_t kmer1 = kmersRow[i];
+        uint128 kmer1 = kmersRow[i];
         for(int j=0; j<countCol; j++)
         {
-            uint64_t kmer2 = kmersCol[j];
+            uint128 kmer2 = kmersCol[j];
             dists[HD_FUNC(kmer1 , kmer2 , kVal)] ++;
         }
     }
@@ -205,21 +272,31 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
 void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFile)
 {
     int numKmers = (seqLen - kVal) + 1;
-    uint64_t *kmers = (uint64_t*)calloc(numKmers , sizeof(uint64_t));
+    uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
 
     // Iterate through k-mers and check HD for each pair
-    uint64_t mask = (kVal == 32) ? ~0ULL : ((1ULL << (2 * kVal)) - 1);
-    uint64_t kmer1 = 0;
+    uint128 mask;
+    mask.fullKmer[0] = (kVal >= 32) ? ~0ULL : ((1ULL << (2 * (kVal))) - 1);
+    mask.fullKmer[1] = (kVal >= 64) ? ~0ULL : ((1ULL << (2 * (kVal-32))) - 1);
+    mask.fullKmer[2] = (kVal >= 96) ? ~0ULL : ((1ULL << (2 * (kVal-64))) - 1);
+    mask.fullKmer[3] = (kVal >= 128) ? ~0ULL : ((1ULL << (2 * (kVal-96))) - 1);
+    uint128 kmer1;
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
+        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
+        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
+        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
     }
     int count = 0;
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
+        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
+        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
+        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
         kmers[count] = kmer1;
         count ++;
     }
@@ -232,7 +309,7 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFi
         auto& hist = local_dists[tid];
         #pragma omp for schedule(dynamic , 1)
         for (int i = 0; i < numKmers; i++) {
-            const uint64_t ki = kmers[i];
+            const uint128 ki = kmers[i];
             for (int j = i + 1; j < numKmers; j++) {
                 int hd = hdPC(ki, kmers[j], kVal);
                 hist[hd]++;
@@ -257,15 +334,22 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
 {
     // Sample k-mers
     int numKmers = (seqLen - kVal) + 1;
-    uint64_t *kmersRow = (uint64_t*)calloc(numKmers , sizeof(uint64_t));
-    uint64_t *kmersCol = (uint64_t*)calloc(numKmers , sizeof(uint64_t));
+    uint128 *kmersRow = (uint128*)calloc(numKmers , sizeof(uint128));
+    uint128 *kmersCol = (uint128*)calloc(numKmers , sizeof(uint128));
 
-    uint64_t mask = (kVal == 32) ? ~0ULL : ((1ULL << (2 * kVal)) - 1);
-    uint64_t kmer1 = 0;
+    uint128 mask;
+    mask.fullKmer[0] = (kVal >= 32) ? ~0ULL : ((1ULL << (2 * (kVal))) - 1);
+    mask.fullKmer[1] = (kVal >= 64) ? ~0ULL : ((1ULL << (2 * (kVal-32))) - 1);
+    mask.fullKmer[2] = (kVal >= 96) ? ~0ULL : ((1ULL << (2 * (kVal-64))) - 1);
+    mask.fullKmer[3] = (kVal >= 128) ? ~0ULL : ((1ULL << (2 * (kVal-96))) - 1);
+    uint128 kmer1;
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
+        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
+        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
+        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
     }
     int countRow = 0;
     int countCol = 0;
@@ -273,7 +357,10 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        kmer1 = ((kmer1 << 2) | (uint64_t)c) & mask;
+        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
+        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
+        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
+        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
         MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , 1 , hashed);
         float hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta1)
@@ -300,7 +387,7 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
         auto& hist = local_dists[tid];
         #pragma omp for schedule(dynamic , 1)
         for (int i = 0; i < countRow; i++) {
-            const uint64_t ki = kmersRow[i];
+            const uint128 ki = kmersRow[i];
             for (int j = 0; j < countCol; j++) {
                 int hd = hdPC(ki, kmersCol[j], kVal);
                 hist[hd]++;
@@ -334,7 +421,14 @@ int main(int argc, char* argv[]) {
     double theta2 = 1;
     int numThreads = 1;
 
-    popMask = (2.0)*((pow((long double)4 , (long double)kVal) - 1)/3.0); // Keep odd bits
+    // Check for input errors
+    if(kVal > 128 || kVal < 1 || seqLen < 1 || seqLen < kVal)
+    {
+        cout << "ARGUMENT ERROR" << endl;
+        return 1;
+    }
+
+    popMask = (2.0)*((pow((long double)4 , (long double)(min(kVal , 32))) - 1)/3.0); // Keep odd bits
     popMask2 = popMask >> 1; // Keep even bits
 
     // Parse FASTA file to get sequence
@@ -353,6 +447,10 @@ int main(int argc, char* argv[]) {
     if(argc == 6)
     {
         int numThreads = atoi(argv[5]);
+        if(numThreads < 1)
+        {
+            return 1;
+        }
         omp_set_num_threads(numThreads);
         multithread(kVal , retrievedLen , seq , numThreads , outptFile);
     }
@@ -361,6 +459,10 @@ int main(int argc, char* argv[]) {
     {
         double theta1 = atof(argv[5]); // row sampling rate
         double theta2 = atof(argv[6]); // column sampling rate
+        if(theta1 < 0 || theta2 < 0)
+        {
+            return 1;
+        }
         // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
         unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(int));
         sketch(kVal , retrievedLen , seq , theta1 , theta2 , dists);
@@ -373,6 +475,10 @@ int main(int argc, char* argv[]) {
         double theta1 = atof(argv[5]); // row sampling rate
         double theta2 = atof(argv[6]); // column sampling rate
         int numThreads = atoi(argv[7]);
+        if(theta1 < 0 || theta2 < 0 || numThreads < 1)
+        {
+            return 1;
+        }
         omp_set_num_threads(numThreads);
         sketch_multithread(kVal , retrievedLen , seq , theta1 , theta2 , numThreads , outptFile);
     }
