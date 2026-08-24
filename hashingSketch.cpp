@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
       }
       // Different seeds for row and column for independence
       MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed2 , hashed);
-      hash = (float)(hash) / (float)(UINT32_MAX);
+      hash = (float)(*hashed) / (float)(UINT32_MAX);
       if(hash < theta2)
       {
         kmersCol[countCol] = kmer1;
