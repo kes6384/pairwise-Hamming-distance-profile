@@ -6,7 +6,7 @@
 
 using namespace std;
 
-// Gets a sequence of length seqLen from the E. coli genome and encodes it as 2 bits for each character
+// Gets a sequence of length seqLen from the given file
 // seqLen - length of sequence to get
 // seq - char array to store sequence in
 // returns the length of the sequence retrieved
