@@ -1,6 +1,6 @@
 # Pairwise Hamming Distance Profile  
   
-This tool offers several methods to compute the pairwise Hamming distance profile of a given sequence. It is designed for use with FASTA files and k <= 128. The tool can be compiled and run using the command line. The results are output to a user-specified text file.  
+This tool offers several methods to compute the pairwise Hamming distance profile of a given sequence. It is designed for use with FASTA files and $k <= 128$. The tool can be compiled and run using the command line. The results are output to a user-specified text file.  
   
 The tool can be used to compute the full Hamming distance profile of a sequence, or to compute a sketch of the profile for faster (but less accurate) results. Support for multithreading is also provided.  
   
