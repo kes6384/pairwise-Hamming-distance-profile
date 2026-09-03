@@ -44,39 +44,39 @@ NUMBER OF THREADS - optional argument, use this to run a multithreaded version o
 ### EXAMPLES  
 The FASTA file used for the following examples and the results of running the following commands can be found in the folder "test". 
 
-To use one thread to calculate the full Hamming distance profile of 32-mers for the first 10,000 characters of the sequence found in test.fna and store the results in results.txt, any of the following three commands will work:
+To use one thread to calculate the full Hamming distance profile of 32-mers for the first 10,000 characters of the sequence from the file test.fna in the folder test and store the results in results.txt, any of the following three commands will work:
 ```
-./profile test.fna results.txt 10000 32
-```
-```
-./profile test.fna results.txt 10000 32 1.0 1.0
+./profile test/test.fna results.txt 10000 32
 ```
 ```
-./profile test.fna results.txt 10000 32 1
+./profile test/test.fna results.txt 10000 32 1.0 1.0
 ```
 ```
-./profile test.fna results.txt 10000 32 1.0 1.0 1
+./profile test/test.fna results.txt 10000 32 1
+```
+```
+./profile test/test.fna results.txt 10000 32 1.0 1.0 1
 ```
   
 To use one thread to sample 32-mer pairs at a rate of 0.25, any of the following commands will work:
 ```
-./profile test.fna results.txt 10000 32 0.5 0.5
+./profile test/test.fna results.txt 10000 32 0.5 0.5
 ```
 ```
-./profile test.fna results.txt 10000 32 0.5 0.5 1
+./profile test/test.fna results.txt 10000 32 0.5 0.5 1
 ```
   
 To calculate the full profile using 4 threads, any of the following commands will work:
 ```
-./profile test.fna results.txt 10000 32 4
+./profile test/test.fna results.txt 10000 32 4
 ```
 ```
-./profile test.fna results.txt 10000 32 1.0 1.0 4
+./profile test/test.fna results.txt 10000 32 1.0 1.0 4
 ```
   
 To use 4 threads to sample 32-mer pairs at a rate of 0.25, use the following command:
 ```
-./profile test.fna results.txt 10000 32 0.5 0.5 4
+./profile test/test.fna results.txt 10000 32 0.5 0.5 4
 ```
   
 ## OUTPUT  
@@ -85,7 +85,7 @@ The results of running the tool indicate the number of k-mer pairs in the given 
   
 Hamming Distance : Number of Pairs
   
-The following is an example of the output found in results.txt after running the command `./profile test.fna results.txt 10000 32`. For more example output, please see the test folder found in the repo.  
+The following is an example of the output found in results.txt after running the command `./profile test/test.fna results.txt 10000 32`. For more example output, please see the test folder found in the repo.  
   
 Hamming Distance : Number of Pairs  
 0 : 0  
