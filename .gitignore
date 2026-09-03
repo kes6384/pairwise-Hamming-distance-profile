@@ -9,4 +9,19 @@
 
 # Output files #
 ###################
-*_out.txt
+*.txt
+
+# Old source files #
+###################
+cppHD*
+hashingSketch*
+HDSketch.cppHD
+matrix*
+
+# Other #
+###################
+script.py
+tinyFA.hpp
+pliib.hpp
+eigen-5.0.0
+errorFigures
