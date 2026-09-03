@@ -27,7 +27,7 @@ using namespace std;
 
 // Struct for storing k-mers with k <= 128
 struct uint128 {
-    // Each k-mer is 2-bit encoded, so 128 characters needs 256 bits
+    // Each k-mer is 2-bit encoded, so need 256 bits for 128 characters
     uint64_t fullKmer[4] = {0,0,0,0};
 };
 
@@ -202,9 +202,10 @@ void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
 // Sketching
 void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , unsigned int* dists)
 {
-    std::random_device rd;
-    uint32_t seed1 = rd();
-    uint32_t seed2 = rd();
+    //std::random_device rd;
+    // arbitrary seeds for hashing
+    uint32_t seed1 = 42;
+    uint32_t seed2 = 24;
     
     // Sample k-mers
     int numKmers = (seqLen - kVal) + 1;
@@ -250,12 +251,12 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
             kmersCol[countCol] = kmer1;
             countCol ++;
         }
-        }
-        free(hashed);
+    }
+    free(hashed);
 
-        // Calculate HD for sampled k-mers
-        for(int i=0; i<countRow; i++)
-        {
+    // Calculate HD for sampled k-mers
+    for(int i=0; i<countRow; i++)
+    {
         uint128 kmer1 = kmersRow[i];
         for(int j=0; j<countCol; j++)
         {
@@ -266,6 +267,7 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
     
     free(kmersRow);
     free(kmersCol);
+    // Account for kmers being in both the row and the column
 }
 
 // Multithreading with no sketching
@@ -332,6 +334,10 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFi
 
 void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , double theta2 , int numThreads , char* outFile)
 {
+    // arbitrary seeds for hashing
+    uint32_t seed1 = 42;
+    uint32_t seed2 = 24;
+
     // Sample k-mers
     int numKmers = (seqLen - kVal) + 1;
     uint128 *kmersRow = (uint128*)calloc(numKmers , sizeof(uint128));
@@ -361,14 +367,14 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
         kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
         kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
         kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
-        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , 1 , hashed);
+        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
         float hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta1)
         {
             kmersRow[countRow] = kmer1;
             countRow ++;
         }
-        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , 2 , hashed);
+        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed2 , hashed);
         hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta2)
         {
@@ -449,6 +455,7 @@ int main(int argc, char* argv[]) {
         int numThreads = atoi(argv[5]);
         if(numThreads < 1)
         {
+            cout << "ARGUMENT ERROR" << endl;
             return 1;
         }
         omp_set_num_threads(numThreads);
@@ -459,8 +466,9 @@ int main(int argc, char* argv[]) {
     {
         double theta1 = atof(argv[5]); // row sampling rate
         double theta2 = atof(argv[6]); // column sampling rate
-        if(theta1 < 0 || theta2 < 0)
+        if(theta1 <= 0 || theta2 <= 0)
         {
+            cout << "ARGUMENT ERROR" << endl;
             return 1;
         }
         // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
@@ -475,8 +483,9 @@ int main(int argc, char* argv[]) {
         double theta1 = atof(argv[5]); // row sampling rate
         double theta2 = atof(argv[6]); // column sampling rate
         int numThreads = atoi(argv[7]);
-        if(theta1 < 0 || theta2 < 0 || numThreads < 1)
+        if(theta1 <= 0 || theta2 <= 0 || numThreads < 1)
         {
+            cout << "ARGUMENT ERROR" << endl;
             return 1;
         }
         omp_set_num_threads(numThreads);
