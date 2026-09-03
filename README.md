@@ -8,8 +8,8 @@ All of the provided methods are contained within profile.cpp. Required open sour
 
 ## REQUIREMENTS  
 
-$C++ \geq 20$  
-$Windows OS \geq 11$  
+C++ $\geq 20$  
+Windows OS $\geq 11$  
   
 The tool has not been successfully tested with other OS or compilers.  
   
@@ -36,7 +36,7 @@ The sampling rate and number of threads arguments are optional and can be used t
 INPUT FILE - FASTA file that contains the sequence you want to analyze  
 OUTPUT FILE - text file where results will be written to  
 SEQUENCE LENGTH - length of the provided sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE)  
-k - length of k-mers, must be $k 1 \leq k \geq 128$ 
+k - length of k-mers, must be $k 1 \leq k \leq 128$ 
 ROW SAMPLE RATE - optional argument, rate at which to sample first k-mer; default is 1 (full profile)  
 COLUMN SAMPLE RATE - optional argument, rate at which to sample second k-mer; default is 1 (full profile)  
 NUMBER OF THREADS - optional argument, use this to run a multithreaded version of the tool; default is 1  
@@ -85,39 +85,39 @@ The results of running the tool indicate the number of k-mer pairs in the given 
   
 Hamming Distance : Number of Pairs
   
-The following is an example of the output found in results.txt after running the command `./profile test.fna results.txt 10000 32`. For more example output, please see the test folder found in the repo.
+The following is an example of the output found in results.txt after running the command `./profile test.fna results.txt 10000 32`. For more example output, please see the test folder found in the repo.  
   
-Hamming Distance : Number of Pairs
-0 : 0
-1 : 0
-2 : 0
-3 : 0
-4 : 0
-5 : 0
-6 : 0
-7 : 0
-8 : 1
-9 : 7
-10 : 26
-11 : 122
-12 : 677
-13 : 2590
-14 : 9719
-15 : 31298
-16 : 89884
-17 : 235987
-18 : 555450
-19 : 1170238
-20 : 2200547
-21 : 3672056
-22 : 5406069
-23 : 6981408
-24 : 7828013
-25 : 7542293
-26 : 6158943
-27 : 4177891
-28 : 2285129
-29 : 969730
-30 : 302018
-31 : 59794
-32 : 5606
+Hamming Distance : Number of Pairs  
+0 : 0  
+1 : 0  
+2 : 0  
+3 : 0  
+4 : 0  
+5 : 0  
+6 : 0  
+7 : 0  
+8 : 1  
+9 : 7  
+10 : 26  
+11 : 122  
+12 : 677  
+13 : 2590  
+14 : 9719  
+15 : 31298  
+16 : 89884  
+17 : 235987  
+18 : 555450  
+19 : 1170238  
+20 : 2200547  
+21 : 3672056  
+22 : 5406069  
+23 : 6981408  
+24 : 7828013  
+25 : 7542293  
+26 : 6158943  
+27 : 4177891  
+28 : 2285129  
+29 : 969730  
+30 : 302018  
+31 : 59794  
+32 : 5606  
