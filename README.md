@@ -7,11 +7,11 @@ The tool can be used to compute the full Hamming distance profile of a sequence,
 All of the provided methods are contained within profile.cpp. Required open source libraries are provided in the repo. MurmurHash repo: https://github.com/aappleby/smhasher/tree/master  
 
 ## REQUIREMENTS  
-
+  
 C++ $\geq 20$  
 Windows OS $\geq 11$  
   
-The tool has not been successfully tested with other OS or compilers.  
+The tool will not compile successfully with earlier C++ standards.
   
 ## INSTALL AND COMPILING  
 
@@ -42,7 +42,7 @@ The arguments can be specified in any order using the options outlined below. Th
 `-t` : run multithreaded version of the tool. Otherwise, the tool will run with one thread  
   
 ### EXAMPLES  
-The FASTA file used for the following examples and the results of running the following commands can be found in the folder "test". 
+The FASTA file used for the following examples and the results of running the following commands can be found in the [test folder](/test/). 
 
 To use one thread to calculate the full Hamming distance profile of 32-mers for the first 10,000 characters of the sequence from the file test.fna in the folder test and store the results in results.txt, any of the following three commands will work:
 ```
@@ -85,4 +85,4 @@ The results of running the tool indicate the number of k-mer pairs in the given 
   
 Hamming Distance : Number of Pairs
   
-For example outputs, please see the test folder found in the repo. All example outputs were generated using k = 32 and sequence length = 10,000. "results_fullProfile" was generated using the default method. "results_sampleRate0.5" was generated using a row sampling rate of 0.5 and a column sampling rate of 0.5. Changing the number of threads has no effect on the output generated.  
+For example outputs, please see the [test folder](/test/) found in the repo. All example outputs were generated using k = 32 and sequence length = 10,000. [results_fullProfile.txt](/test/results_fullProfile.txt) was generated using the default method. [results_sampleRate0.5.txt](/test/results_sampleRate0.5.txt) was generated using a row sampling rate of 0.5 and a column sampling rate of 0.5. Changing the number of threads has no effect on the output generated.  
