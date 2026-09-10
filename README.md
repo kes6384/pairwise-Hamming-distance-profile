@@ -37,8 +37,8 @@ The arguments can be specified in any order using the options outlined below. Th
 `-l` : length of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE)  
 `-k` : length of k-mers, must be $k 1 \leq k \leq 128$ 
 `-s` : generate a sketch instead of the full profile. Requires both row and column sampling rates  
-        ROW SAMPLE RATE - rate at which to sample first k-mer in each pair  
-        COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair  
+       - ROW SAMPLE RATE - rate at which to sample first k-mer in each pair  
+       - COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair  
 `-t` : run multithreaded version of the tool. Otherwise, the tool will run with one thread  
   
 ### EXAMPLES  
