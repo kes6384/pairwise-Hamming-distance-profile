@@ -236,8 +236,10 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
     int numLoops = (kVal / 33) + 1;
     // Sample k-mers
     int numKmers = (seqLen - kVal) + 1;
-    uint128 *kmersRow = (uint128*)calloc(numKmers , sizeof(uint128));
-    uint128 *kmersCol = (uint128*)calloc(numKmers , sizeof(uint128));
+    uint128 empty;
+    // Initially assume needed space based on sampling rate
+    std::vector<uint128> kmersRow((int)(numKmers*(theta1*theta2)) , empty);
+    std::vector<uint128> kmersCol((int)(numKmers*(theta1*theta2)) , empty);
 
     uint128 mask;
     for(int i=0; i < numLoops; i++)
@@ -281,7 +283,14 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
         float hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta1)
         {
-            kmersRow[countRow] = kmer1;
+            if(countRow < kmersRow.size())
+            {
+                kmersRow[countRow] = kmer1;
+            }
+            else
+            {
+                kmersRow.push_back(kmer1);
+            }
             countRow ++;
         }
         // Different seeds for row and column for independence
@@ -289,7 +298,14 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
         hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta2)
         {
-            kmersCol[countCol] = kmer1;
+            if(countCol < kmersCol.size())
+            {
+                kmersCol[countCol] = kmer1;
+            }
+            else
+            {
+                kmersCol.push_back(kmer1);
+            }
             countCol ++;
         }
     }
@@ -305,10 +321,6 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
             dists[HD_FUNC(kmer1 , kmer2 , kVal)] ++;
         }
     }
-    
-    free(kmersRow);
-    free(kmersCol);
-    // Account for kmers being in both the row and the column
 }
 
 // Multithreading with no sketching
@@ -398,8 +410,10 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
 
     // Sample k-mers
     int numKmers = (seqLen - kVal) + 1;
-    uint128 *kmersRow = (uint128*)calloc(numKmers , sizeof(uint128));
-    uint128 *kmersCol = (uint128*)calloc(numKmers , sizeof(uint128));
+    uint128 empty;
+    // Initially assume needed space based on sampling rate
+    std::vector<uint128> kmersRow((int)(numKmers*(theta1*theta2)) , empty);
+    std::vector<uint128> kmersCol((int)(numKmers*(theta1*theta2)) , empty);
 
     uint128 mask;
     for(int i=0; i < numLoops; i++)
@@ -443,14 +457,28 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
         float hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta1)
         {
-            kmersRow[countRow] = kmer1;
+            if(countRow < kmersRow.size())
+            {
+                kmersRow[countRow] = kmer1;
+            }
+            else
+            {
+                kmersRow.push_back(kmer1);
+            }
             countRow ++;
         }
         MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed2 , hashed);
         hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta2)
         {
-            kmersCol[countCol] = kmer1;
+            if(countCol < kmersCol.size())
+            {
+                kmersCol[countCol] = kmer1;
+            }
+            else
+            {
+                kmersCol.push_back(kmer1);
+            }
             countCol ++;
         }
     }
@@ -482,8 +510,6 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
         }
     }
 
-    free(kmersRow);
-    free(kmersCol);
     output_multithread(dists , kVal , (theta1*theta2) , outFile);
 }
 
