@@ -169,8 +169,10 @@ void output_multithread(std::vector<uint64_t> &dists , int len , float rate , ch
 // No sketching, no multithreading
 void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
 {
+    int numKmers = (seqLen - kVal) + 1;
+    uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
+
     int numLoops = (kVal / 33) + 1;
-    //int numLoops = 4;
     // Iterate through k-mers and check HD for each pair
     uint128 mask;
     for(int i=0; i < numLoops; i++)
@@ -193,7 +195,7 @@ void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
             }
         }
     }
-    //cout << ("%d" , kmer1.fullKmer[3]) << endl;
+    int count = 0;
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
@@ -208,24 +210,19 @@ void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
                 kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
             }
         }
-        uint128 kmer2 = kmer1;
-        for (int j=i+1; j<seqLen; j++)
+        kmers[count] = kmer1;
+        count ++;
+    }
+
+    // Calculate HD for each pair
+    for (int i=0; i<numKmers; i++)
+    {
+        for(int j=i+1; j<numKmers; j++)
         {
-            int c2 = seq[j];
-            for(int i=0; i < 4; i++)
-            {
-                if(i == 3)
-                {
-                    kmer2.fullKmer[3] = ((kmer2.fullKmer[3] << 2) | (uint64_t)c2) & mask.fullKmer[0];
-                }
-                else if(3-i < numLoops)
-                {
-                    kmer2.fullKmer[i] = ((kmer2.fullKmer[i] << 2) | (kmer2.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
-                }
-            }
-            dists[HD_FUNC(kmer1  , kmer2 , kVal)] ++;
+            dists[HD_FUNC(kmers[i]  , kmers[j] , kVal)] ++;
         }
     }
+    free(kmers);
 }
 
 // Sketching
