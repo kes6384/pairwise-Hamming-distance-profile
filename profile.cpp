@@ -419,16 +419,82 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
 // Sampling rates and number of threads are optional
 // Default is full profile and one thread (no multithreading)
 int main(int argc, char* argv[]) {
-    char* inptFile = argv[1];
-    char* outptFile = argv[2];
-    int seqLen = atoi(argv[3]); // Sequence length
-    int kVal = atoi(argv[4]); // k-mer length
+    char* inptFile;
+    char* outptFile;
+    int seqLen = 0;
+    int kVal = 0;
     double theta1 = 1;
     double theta2 = 1;
     int numThreads = 1;
 
+    // parse arguments
+    for (int i = 1; i < argc; i++)
+    {
+        string arg = argv[i];
+
+        if(arg == "-i") //input file
+        {
+            if(argc < (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                return 1;
+            }
+            inptFile = argv[++i];
+        }
+        else if(arg == "-o") //output file
+        {
+            if(argc < (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                return 1;
+            }
+            outptFile = argv[++i];
+        }
+        else if(arg == "-l") //sequence length
+        {
+            if(argc < (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                return 1;
+            }
+            seqLen = atoi(argv[++i]);
+        }
+        else if(arg == "-k") //k-mer length
+        {
+            if(argc < (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                return 1;
+            }
+            kVal = atoi(argv[++i]);
+        }
+        else if(arg == "-t") //multithreading
+        {
+            if(argc < (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                return 1;
+            }
+            numThreads = atoi(argv[++i]);
+        }
+        else if(arg == "-s") //sketch
+        {
+            if(argc < (i + 2))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                return 1;
+            }
+            theta1 = atof(argv[++i]);
+            theta2 = atof(argv[++i]);
+        }
+        else
+        {
+            cout << "ARGUMENT ERROR" << endl;
+            return 1;
+        }
+    }
     // Check for input errors
-    if(kVal > 128 || kVal < 1 || seqLen < 1 || seqLen < kVal)
+    if(kVal > 128 || kVal < 1 || seqLen < 1 || seqLen < kVal || numThreads < 1 || theta1 <= 0 || theta2 <= 0 || theta1 > 1 || theta2 > 1 || inptFile == "" || outptFile == "")
     {
         cout << "ARGUMENT ERROR" << endl;
         return 1;
@@ -449,49 +515,30 @@ int main(int argc, char* argv[]) {
         seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
     }
 
-    // No sketch, multithreading
-    if(argc == 6)
+    // Run correct method
+
+    // multithreaded
+    if(numThreads > 1)
     {
-        int numThreads = atoi(argv[5]);
-        if(numThreads < 1)
-        {
-            cout << "ARGUMENT ERROR" << endl;
-            return 1;
-        }
         omp_set_num_threads(numThreads);
-        multithread(kVal , retrievedLen , seq , numThreads , outptFile);
-    }
-    // Sketch, no multithreading
-    else if(argc == 7)
-    {
-        double theta1 = atof(argv[5]); // row sampling rate
-        double theta2 = atof(argv[6]); // column sampling rate
-        if(theta1 <= 0 || theta2 <= 0)
+        // sketching
+        if(theta1*theta2 != 1)
         {
-            cout << "ARGUMENT ERROR" << endl;
-            return 1;
+            sketch_multithread(kVal , retrievedLen , seq , theta1 , theta2 , numThreads , outptFile);
         }
+        else
+        {
+            multithread(kVal , retrievedLen , seq , numThreads , outptFile);
+        }
+    }
+    else if(theta1*theta2 != 1)
+    {
         // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
         unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(int));
         sketch(kVal , retrievedLen , seq , theta1 , theta2 , dists);
         output(dists , kVal , (theta1*theta2) , outptFile);
         free(dists);
     }
-    // Sketch with multithreading
-    else if(argc == 8)
-    {
-        double theta1 = atof(argv[5]); // row sampling rate
-        double theta2 = atof(argv[6]); // column sampling rate
-        int numThreads = atoi(argv[7]);
-        if(theta1 <= 0 || theta2 <= 0 || numThreads < 1)
-        {
-            cout << "ARGUMENT ERROR" << endl;
-            return 1;
-        }
-        omp_set_num_threads(numThreads);
-        sketch_multithread(kVal , retrievedLen , seq , theta1 , theta2 , numThreads , outptFile);
-    }
-    // No sketch, no multithreading
     else
     {
         // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
