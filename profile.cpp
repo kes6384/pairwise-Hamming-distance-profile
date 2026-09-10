@@ -65,6 +65,10 @@ int getSeq(char* seq, char* file, int len)
 // Uses bit manipulation and popcount
 int hdPC(uint128 kmer1, uint128 kmer2 , int k)
 {
+    //cout << ("%d" , kmer1.fullKmer[3]) << endl;
+    //cout << ("%d" , kmer2.fullKmer[3]) << endl;
+  int numLoops = (k / 33) + 1;
+  //int numLoops = 4;
   int dist = 0;
   // Mask bits to separate first and second bits of each character for each subsequence
   uint128 subseq1_oddBit;
@@ -72,55 +76,56 @@ int hdPC(uint128 kmer1, uint128 kmer2 , int k)
   uint128 subseq2_oddBit;
   uint128 subseq2_evenBit;
 
-  subseq1_oddBit.fullKmer[0] = kmer1.fullKmer[0] & popMask;
-  subseq1_oddBit.fullKmer[1] = kmer1.fullKmer[1] & popMask;
-  subseq1_oddBit.fullKmer[2] = kmer1.fullKmer[2] & popMask;
-  subseq1_oddBit.fullKmer[3] = kmer1.fullKmer[3] & popMask;
+  for(int i=0; i < numLoops; i++)
+  {
+    subseq1_oddBit.fullKmer[3-i] = kmer1.fullKmer[3-i] & popMask;
+  }
 
-  subseq2_oddBit.fullKmer[0] = kmer2.fullKmer[0] & popMask;
-  subseq2_oddBit.fullKmer[1] = kmer2.fullKmer[1] & popMask;
-  subseq2_oddBit.fullKmer[2] = kmer2.fullKmer[2] & popMask;
-  subseq2_oddBit.fullKmer[3] = kmer2.fullKmer[3] & popMask;
+  for(int i=0; i < numLoops; i++)
+  {
+    subseq2_oddBit.fullKmer[3-i] = kmer2.fullKmer[3-i] & popMask;
+  }
 
-  subseq1_evenBit.fullKmer[0] = kmer1.fullKmer[0] & popMask2;
-  subseq1_evenBit.fullKmer[1] = kmer1.fullKmer[1] & popMask2;
-  subseq1_evenBit.fullKmer[2] = kmer1.fullKmer[2] & popMask2;
-  subseq1_evenBit.fullKmer[3] = kmer1.fullKmer[3] & popMask2;
+  for(int i=0; i < numLoops; i++)
+  {
+    subseq1_evenBit.fullKmer[3-i] = kmer1.fullKmer[3-i] & popMask2;
+  }
 
-  subseq2_evenBit.fullKmer[0] = kmer2.fullKmer[0] & popMask2;
-  subseq2_evenBit.fullKmer[1] = kmer2.fullKmer[1] & popMask2;
-  subseq2_evenBit.fullKmer[2] = kmer2.fullKmer[2] & popMask2;
-  subseq2_evenBit.fullKmer[3] = kmer2.fullKmer[3] & popMask2;
+  for(int i=0; i < numLoops; i++)
+  {
+    subseq2_evenBit.fullKmer[3-i] = kmer2.fullKmer[3-i] & popMask2;
+  }
 
   // XOR each masked subsequence to compare first and second bits
   // XOR result is 0 if the bits match
   uint128 xor_firstBits;
   uint128 xor_secondBits;
 
-  xor_firstBits.fullKmer[0] = subseq1_oddBit.fullKmer[0] ^ subseq2_oddBit.fullKmer[0];
-  xor_firstBits.fullKmer[1] = subseq1_oddBit.fullKmer[1] ^ subseq2_oddBit.fullKmer[1];
-  xor_firstBits.fullKmer[2] = subseq1_oddBit.fullKmer[2] ^ subseq2_oddBit.fullKmer[2];
-  xor_firstBits.fullKmer[3] = subseq1_oddBit.fullKmer[3] ^ subseq2_oddBit.fullKmer[3];
+  for(int i=0; i < numLoops; i++)
+  {
+    xor_firstBits.fullKmer[3-i] = subseq1_oddBit.fullKmer[3-i] ^ subseq2_oddBit.fullKmer[3-i];
+  }
 
-  xor_secondBits.fullKmer[0] = (subseq1_evenBit.fullKmer[0] ^ subseq2_evenBit.fullKmer[0]) << 1;
-  xor_secondBits.fullKmer[1] = (subseq1_evenBit.fullKmer[1] ^ subseq2_evenBit.fullKmer[1]) << 1;
-  xor_secondBits.fullKmer[2] = (subseq1_evenBit.fullKmer[2] ^ subseq2_evenBit.fullKmer[2]) << 1;
-  xor_secondBits.fullKmer[3] = (subseq1_evenBit.fullKmer[3] ^ subseq2_evenBit.fullKmer[3]) << 1;
+  for(int i=0; i < numLoops; i++)
+  {
+    xor_secondBits.fullKmer[3-i] = (subseq1_evenBit.fullKmer[3-i] ^ subseq2_evenBit.fullKmer[3-i]) << 1;
+  }
 
   // NOR = 1 if both bits for the character matched = the character matched
   // ~NOR = 1 if the characters did not match
   // popcount(~nor) = number of characters that did not match
   // ~nor = or
   uint128 orResult;
-  orResult.fullKmer[0] = xor_firstBits.fullKmer[0] | xor_secondBits.fullKmer[0];
-  orResult.fullKmer[1] = xor_firstBits.fullKmer[1] | xor_secondBits.fullKmer[1];
-  orResult.fullKmer[2] = xor_firstBits.fullKmer[2] | xor_secondBits.fullKmer[2];
-  orResult.fullKmer[3] = xor_firstBits.fullKmer[3] | xor_secondBits.fullKmer[3];
+  for(int i=0; i < numLoops; i++)
+  {
+    orResult.fullKmer[3-i] = xor_firstBits.fullKmer[3-i] | xor_secondBits.fullKmer[3-i];
+  }
 
-  dist += std::popcount(orResult.fullKmer[0]);
-  dist += std::popcount(orResult.fullKmer[1]);
-  dist += std::popcount(orResult.fullKmer[2]);
-  dist += std::popcount(orResult.fullKmer[3]);
+  for(int i=0; i < numLoops; i++)
+  {
+    dist += std::popcount(orResult.fullKmer[3-i]);
+  }
+
   return dist;
 }
 
@@ -164,36 +169,60 @@ void output_multithread(std::vector<uint64_t> &dists , int len , float rate , ch
 // No sketching, no multithreading
 void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
 {
+    int numLoops = (kVal / 33) + 1;
+    //int numLoops = 4;
     // Iterate through k-mers and check HD for each pair
     uint128 mask;
-    mask.fullKmer[0] = (kVal >= 32) ? ~0ULL : ((1ULL << (2 * (kVal))) - 1);
-    mask.fullKmer[1] = (kVal >= 64) ? ~0ULL : ((1ULL << (2 * (kVal-32))) - 1);
-    mask.fullKmer[2] = (kVal >= 96) ? ~0ULL : ((1ULL << (2 * (kVal-64))) - 1);
-    mask.fullKmer[3] = (kVal >= 128) ? ~0ULL : ((1ULL << (2 * (kVal-96))) - 1);
+    for(int i=0; i < numLoops; i++)
+    {
+        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+    }
     uint128 kmer1;
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
-        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
-        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
-        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        for(int i=0; i < 4; i++)
+        {
+            if(i == 3)
+            {
+                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+            }
+            else if(3-i < numLoops)
+            {
+                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
+            }
+        }
     }
+    //cout << ("%d" , kmer1.fullKmer[3]) << endl;
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
-        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
-        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
-        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        for(int i=0; i < 4; i++)
+        {
+            if(i == 3)
+            {
+                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+            }
+            else if(3-i < numLoops)
+            {
+                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
+            }
+        }
         uint128 kmer2 = kmer1;
         for (int j=i+1; j<seqLen; j++)
         {
             int c2 = seq[j];
-            kmer2.fullKmer[0] = ((kmer2.fullKmer[0] << 2) | (kmer2.fullKmer[1] >> 62)) & mask.fullKmer[3];
-            kmer2.fullKmer[1] = ((kmer2.fullKmer[1] << 2) | (kmer2.fullKmer[2] >> 62)) & mask.fullKmer[2];
-            kmer2.fullKmer[2] = ((kmer2.fullKmer[2] << 2) | (kmer2.fullKmer[3] >> 62)) & mask.fullKmer[1];
-            kmer2.fullKmer[3] = ((kmer2.fullKmer[3] << 2) | (uint64_t)c2) & mask.fullKmer[0];
+            for(int i=0; i < 4; i++)
+            {
+                if(i == 3)
+                {
+                    kmer2.fullKmer[3] = ((kmer2.fullKmer[3] << 2) | (uint64_t)c2) & mask.fullKmer[0];
+                }
+                else if(3-i < numLoops)
+                {
+                    kmer2.fullKmer[i] = ((kmer2.fullKmer[i] << 2) | (kmer2.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
+                }
+            }
             dists[HD_FUNC(kmer1  , kmer2 , kVal)] ++;
         }
     }
@@ -207,24 +236,32 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
     uint32_t seed1 = 42;
     uint32_t seed2 = 24;
     
+    int numLoops = (kVal / 33) + 1;
     // Sample k-mers
     int numKmers = (seqLen - kVal) + 1;
     uint128 *kmersRow = (uint128*)calloc(numKmers , sizeof(uint128));
     uint128 *kmersCol = (uint128*)calloc(numKmers , sizeof(uint128));
 
     uint128 mask;
-    mask.fullKmer[0] = (kVal >= 32) ? ~0ULL : ((1ULL << (2 * (kVal))) - 1);
-    mask.fullKmer[1] = (kVal >= 64) ? ~0ULL : ((1ULL << (2 * (kVal-32))) - 1);
-    mask.fullKmer[2] = (kVal >= 96) ? ~0ULL : ((1ULL << (2 * (kVal-64))) - 1);
-    mask.fullKmer[3] = (kVal >= 128) ? ~0ULL : ((1ULL << (2 * (kVal-96))) - 1);
+    for(int i=0; i < numLoops; i++)
+    {
+        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+    }
     uint128 kmer1;
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
-        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
-        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
-        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        for(int i=0; i < 4; i++)
+        {
+            if(i == 3)
+            {
+                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+            }
+            else if(3-i < numLoops)
+            {
+                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
+            }
+        }
     }
     int countRow = 0;
     int countCol = 0;
@@ -232,10 +269,17 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
-        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
-        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
-        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        for(int i=0; i < 4; i++)
+        {
+            if(i == 3)
+            {
+                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+            }
+            else if(3-i < numLoops)
+            {
+                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
+            }
+        }
         MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
         float hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta1)
@@ -276,29 +320,44 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFi
     int numKmers = (seqLen - kVal) + 1;
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
 
+    int numLoops = (kVal / 33) + 1;
     // Iterate through k-mers and check HD for each pair
     uint128 mask;
-    mask.fullKmer[0] = (kVal >= 32) ? ~0ULL : ((1ULL << (2 * (kVal))) - 1);
-    mask.fullKmer[1] = (kVal >= 64) ? ~0ULL : ((1ULL << (2 * (kVal-32))) - 1);
-    mask.fullKmer[2] = (kVal >= 96) ? ~0ULL : ((1ULL << (2 * (kVal-64))) - 1);
-    mask.fullKmer[3] = (kVal >= 128) ? ~0ULL : ((1ULL << (2 * (kVal-96))) - 1);
+    for(int i=0; i < numLoops; i++)
+    {
+        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+    }
     uint128 kmer1;
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
-        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
-        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
-        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        for(int i=0; i < 4; i++)
+        {
+            if(i == 3)
+            {
+                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+            }
+            else if(3-i < numLoops)
+            {
+                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
+            }
+        }
     }
     int count = 0;
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
-        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
-        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
-        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        for(int i=0; i < 4; i++)
+        {
+            if(i == 3)
+            {
+                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+            }
+            else if(3-i < numLoops)
+            {
+                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
+            }
+        }
         kmers[count] = kmer1;
         count ++;
     }
@@ -324,7 +383,7 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFi
     {
         for(int h=0; h<=kVal; h++)
         {
-        dists[h] += local_dists[t][h];
+            dists[h] += local_dists[t][h];
         }
     }
     
@@ -338,24 +397,33 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
     uint32_t seed1 = 42;
     uint32_t seed2 = 24;
 
+    int numLoops = (kVal / 33) + 1;
+
     // Sample k-mers
     int numKmers = (seqLen - kVal) + 1;
     uint128 *kmersRow = (uint128*)calloc(numKmers , sizeof(uint128));
     uint128 *kmersCol = (uint128*)calloc(numKmers , sizeof(uint128));
 
     uint128 mask;
-    mask.fullKmer[0] = (kVal >= 32) ? ~0ULL : ((1ULL << (2 * (kVal))) - 1);
-    mask.fullKmer[1] = (kVal >= 64) ? ~0ULL : ((1ULL << (2 * (kVal-32))) - 1);
-    mask.fullKmer[2] = (kVal >= 96) ? ~0ULL : ((1ULL << (2 * (kVal-64))) - 1);
-    mask.fullKmer[3] = (kVal >= 128) ? ~0ULL : ((1ULL << (2 * (kVal-96))) - 1);
+    for(int i=0; i < numLoops; i++)
+    {
+        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+    }
     uint128 kmer1;
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
-        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
-        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
-        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        for(int i=0; i < 4; i++)
+        {
+            if(i == 3)
+            {
+                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+            }
+            else if(3-i < numLoops)
+            {
+                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
+            }
+        }
     }
     int countRow = 0;
     int countCol = 0;
@@ -363,10 +431,17 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        kmer1.fullKmer[0] = ((kmer1.fullKmer[0] << 2) | (kmer1.fullKmer[1] >> 62)) & mask.fullKmer[3];
-        kmer1.fullKmer[1] = ((kmer1.fullKmer[1] << 2) | (kmer1.fullKmer[2] >> 62)) & mask.fullKmer[2];
-        kmer1.fullKmer[2] = ((kmer1.fullKmer[2] << 2) | (kmer1.fullKmer[3] >> 62)) & mask.fullKmer[1];
-        kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        for(int i=0; i < 4; i++)
+        {
+            if(i == 3)
+            {
+                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
+            }
+            else if(3-i < numLoops)
+            {
+                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
+            }
+        }
         MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
         float hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta1)
