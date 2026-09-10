@@ -139,7 +139,7 @@ void output(unsigned int *dists , int len , float rate , char* outFile)
   ofstream out(outFile);
 
   out << "Hamming Distance : Number of Pairs" << endl;
-  for(int i=0; i<=len; i++)
+  for(int i=1; i<=len; i++)
   {
       out << ("%d" , i) << (" : ") << ("%d" , (int)((float)dists[i]/(2.0 * rate))) << endl;
   }
@@ -158,7 +158,7 @@ void output_multithread(std::vector<uint64_t> &dists , int len , float rate , ch
   ofstream out(outFile);
 
   out << "Hamming Distance : Number of Pairs" << endl;
-  for(int i=0; i<=len; i++)
+  for(int i=1; i<=len; i++)
   {
       out << ("%d" , i) << (" : ") << ("%d" , (int)((float)dists[i]/(2.0 * rate))) << endl;
   }
