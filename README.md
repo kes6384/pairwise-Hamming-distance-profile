@@ -11,7 +11,6 @@ All of the provided methods are contained within profile.cpp. Required open sour
 C++ $\geq 20$  
 Windows OS $\geq 11$  
   
-The tool will not compile successfully with earlier C++ standards.
   
 ## INSTALL AND COMPILING  
 
