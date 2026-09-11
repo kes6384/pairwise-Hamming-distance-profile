@@ -30,6 +30,8 @@ struct uint128 {
     // Each k-mer is 2-bit encoded, so need 256 bits for 128 characters
     uint64_t fullKmer[4] = {0,0,0,0};
 };
+// How many elements of fullKmer are actually needed
+int maxNum;
 
 // Masks used for popcount method
 uint64_t popMask;
@@ -65,65 +67,38 @@ int getSeq(char* seq, char* file, int len)
 // Uses bit manipulation and popcount
 int hdPC(uint128 kmer1, uint128 kmer2 , int k)
 {
-    //cout << ("%d" , kmer1.fullKmer[3]) << endl;
-    //cout << ("%d" , kmer2.fullKmer[3]) << endl;
-  int numLoops = (k / 33) + 1;
-  //int numLoops = 4;
   int dist = 0;
-  // Mask bits to separate first and second bits of each character for each subsequence
+
   uint128 subseq1_oddBit;
   uint128 subseq1_evenBit;
   uint128 subseq2_oddBit;
   uint128 subseq2_evenBit;
 
-  for(int i=0; i < numLoops; i++)
-  {
-    subseq1_oddBit.fullKmer[3-i] = kmer1.fullKmer[3-i] & popMask;
-  }
-
-  for(int i=0; i < numLoops; i++)
-  {
-    subseq2_oddBit.fullKmer[3-i] = kmer2.fullKmer[3-i] & popMask;
-  }
-
-  for(int i=0; i < numLoops; i++)
-  {
-    subseq1_evenBit.fullKmer[3-i] = kmer1.fullKmer[3-i] & popMask2;
-  }
-
-  for(int i=0; i < numLoops; i++)
-  {
-    subseq2_evenBit.fullKmer[3-i] = kmer2.fullKmer[3-i] & popMask2;
-  }
-
-  // XOR each masked subsequence to compare first and second bits
-  // XOR result is 0 if the bits match
   uint128 xor_firstBits;
   uint128 xor_secondBits;
 
-  for(int i=0; i < numLoops; i++)
-  {
-    xor_firstBits.fullKmer[3-i] = subseq1_oddBit.fullKmer[3-i] ^ subseq2_oddBit.fullKmer[3-i];
-  }
-
-  for(int i=0; i < numLoops; i++)
-  {
-    xor_secondBits.fullKmer[3-i] = (subseq1_evenBit.fullKmer[3-i] ^ subseq2_evenBit.fullKmer[3-i]) << 1;
-  }
-
-  // NOR = 1 if both bits for the character matched = the character matched
-  // ~NOR = 1 if the characters did not match
-  // popcount(~nor) = number of characters that did not match
-  // ~nor = or
   uint128 orResult;
-  for(int i=0; i < numLoops; i++)
-  {
-    orResult.fullKmer[3-i] = xor_firstBits.fullKmer[3-i] | xor_secondBits.fullKmer[3-i];
-  }
 
-  for(int i=0; i < numLoops; i++)
+  for(int i=0; i < maxNum+1; i++)
   {
-    dist += std::popcount(orResult.fullKmer[3-i]);
+    // Mask bits to separate first and second bits of each character for each subsequence
+    subseq1_oddBit.fullKmer[i] = kmer1.fullKmer[i] & popMask;
+    subseq2_oddBit.fullKmer[i] = kmer2.fullKmer[i] & popMask;
+    subseq1_evenBit.fullKmer[i] = kmer1.fullKmer[i] & popMask2;
+    subseq2_evenBit.fullKmer[i] = kmer2.fullKmer[i] & popMask2;
+
+    // XOR each masked subsequence to compare first and second bits
+    // XOR result is 0 if the bits match
+    xor_firstBits.fullKmer[i] = subseq1_oddBit.fullKmer[i] ^ subseq2_oddBit.fullKmer[i];
+    xor_secondBits.fullKmer[i] = (subseq1_evenBit.fullKmer[i] ^ subseq2_evenBit.fullKmer[i]) << 1;
+
+    // NOR = 1 if both bits for the character matched = the character matched
+    // ~NOR = 1 if the characters did not match
+    // popcount(~nor) = number of characters that did not match
+    // ~nor = or
+    orResult.fullKmer[i] = xor_firstBits.fullKmer[i] | xor_secondBits.fullKmer[i];
+
+    dist += std::popcount(orResult.fullKmer[i]);
   }
 
   return dist;
@@ -172,10 +147,9 @@ void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
     int numKmers = (seqLen - kVal) + 1;
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
 
-    int numLoops = (kVal / 33) + 1;
     // Iterate through k-mers and check HD for each pair
     uint128 mask;
-    for(int i=0; i < numLoops; i++)
+    for(int i=0; i < maxNum+1; i++)
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
@@ -183,33 +157,21 @@ void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        for(int i=0; i < 4; i++)
+        for(int j=0; j < maxNum; j++)
         {
-            if(i == 3)
-            {
-                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
-            }
-            else if(3-i < numLoops)
-            {
-                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
-            }
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
         }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
     }
     int count = 0;
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        for(int i=0; i < 4; i++)
+        for(int j=0; j < maxNum; j++)
         {
-            if(i == 3)
-            {
-                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
-            }
-            else if(3-i < numLoops)
-            {
-                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
-            }
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
         }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
         kmers[count] = kmer1;
         count ++;
     }
@@ -233,7 +195,6 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
     uint32_t seed1 = 42;
     uint32_t seed2 = 24;
     
-    int numLoops = (kVal / 33) + 1;
     // Sample k-mers
     int numKmers = (seqLen - kVal) + 1;
     uint128 empty;
@@ -242,7 +203,7 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
     std::vector<uint128> kmersCol((int)(numKmers*(theta1*theta2)) , empty);
 
     uint128 mask;
-    for(int i=0; i < numLoops; i++)
+    for(int i=0; i < maxNum; i++)
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
@@ -250,17 +211,11 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        for(int i=0; i < 4; i++)
+        for(int j=0; j < maxNum; j++)
         {
-            if(i == 3)
-            {
-                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
-            }
-            else if(3-i < numLoops)
-            {
-                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
-            }
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
         }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
     }
     int countRow = 0;
     int countCol = 0;
@@ -268,17 +223,11 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        for(int i=0; i < 4; i++)
+        for(int j=0; j < maxNum; j++)
         {
-            if(i == 3)
-            {
-                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
-            }
-            else if(3-i < numLoops)
-            {
-                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
-            }
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
         }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
         MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
         float hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta1)
@@ -329,10 +278,9 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFi
     int numKmers = (seqLen - kVal) + 1;
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
 
-    int numLoops = (kVal / 33) + 1;
     // Iterate through k-mers and check HD for each pair
     uint128 mask;
-    for(int i=0; i < numLoops; i++)
+    for(int i=0; i < maxNum; i++)
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
@@ -340,33 +288,21 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFi
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        for(int i=0; i < 4; i++)
+        for(int j=0; j < maxNum; j++)
         {
-            if(i == 3)
-            {
-                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
-            }
-            else if(3-i < numLoops)
-            {
-                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
-            }
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
         }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
     }
     int count = 0;
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        for(int i=0; i < 4; i++)
+        for(int j=0; j < maxNum; j++)
         {
-            if(i == 3)
-            {
-                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
-            }
-            else if(3-i < numLoops)
-            {
-                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
-            }
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
         }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
         kmers[count] = kmer1;
         count ++;
     }
@@ -406,8 +342,6 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
     uint32_t seed1 = 42;
     uint32_t seed2 = 24;
 
-    int numLoops = (kVal / 33) + 1;
-
     // Sample k-mers
     int numKmers = (seqLen - kVal) + 1;
     uint128 empty;
@@ -416,7 +350,7 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
     std::vector<uint128> kmersCol((int)(numKmers*(theta1*theta2)) , empty);
 
     uint128 mask;
-    for(int i=0; i < numLoops; i++)
+    for(int i=0; i < maxNum; i++)
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
@@ -424,17 +358,11 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
     for (int i=0; i<kVal-1; i++)
     {
         int c = seq[i];
-        for(int i=0; i < 4; i++)
+        for(int j=0; j < maxNum; j++)
         {
-            if(i == 3)
-            {
-                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
-            }
-            else if(3-i < numLoops)
-            {
-                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
-            }
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
         }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
     }
     int countRow = 0;
     int countCol = 0;
@@ -442,17 +370,11 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
     for (int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
-        for(int i=0; i < 4; i++)
+        for(int j=0; j < maxNum; j++)
         {
-            if(i == 3)
-            {
-                kmer1.fullKmer[3] = ((kmer1.fullKmer[3] << 2) | (uint64_t)c) & mask.fullKmer[0];
-            }
-            else if(3-i < numLoops)
-            {
-                kmer1.fullKmer[i] = ((kmer1.fullKmer[i] << 2) | (kmer1.fullKmer[i+1] >> 62)) & mask.fullKmer[3-i];
-            }
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
         }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
         MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
         float hash = (float)(*hashed) / (float)(UINT32_MAX);
         if(hash < theta1)
@@ -592,11 +514,13 @@ int main(int argc, char* argv[]) {
         }
     }
     // Check for input errors
-    if(kVal > 128 || kVal < 1 || seqLen < 1 || seqLen < kVal || numThreads < 1 || theta1 <= 0 || theta2 <= 0 || theta1 > 1 || theta2 > 1 || inptFile == "" || outptFile == "")
+    if(kVal > 128 || kVal < 1 || seqLen < 1 || seqLen < kVal || numThreads < 1 || theta1 <= 0 || theta2 <= 0 || theta1 > 1 || theta2 > 1 || inptFile == NULL || outptFile == NULL || inptFile == "" || outptFile == "")
     {
         cout << "ARGUMENT ERROR" << endl;
         return 1;
     }
+
+    maxNum = ((kVal-1) / 32);
 
     popMask = (2.0)*((pow((long double)4 , (long double)(min(kVal , 32))) - 1)/3.0); // Keep odd bits
     popMask2 = popMask >> 1; // Keep even bits
@@ -632,7 +556,7 @@ int main(int argc, char* argv[]) {
     else if(theta1*theta2 != 1)
     {
         // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
-        unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(int));
+        unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(unsigned int));
         sketch(kVal , retrievedLen , seq , theta1 , theta2 , dists);
         output(dists , kVal , (theta1*theta2) , outptFile);
         free(dists);
@@ -640,7 +564,7 @@ int main(int argc, char* argv[]) {
     else
     {
         // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
-        unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(int));
+        unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(unsigned int));
         regularVer(kVal , retrievedLen , seq , dists);
         output(dists , kVal , 0.5 , outptFile);
         free(dists);
