@@ -120,25 +120,6 @@ void output(unsigned int *dists , int len , float rate , char* outFile)
   out.close();
 }
 
-// Output vector of Hamming distance counts to a text file
-// Used with multithreaded methods
-// dists - vector of Hamming distance counts
-// len - length of vector of Hamming distance counts (equivalent to k-mer size, since HD max is k)
-// rate - sampling rate (theta1 * theta2); equals 1 if not sketch
-// outFile - file results are written to
-void output_multithread(std::vector<uint64_t> &dists , int len , float rate , char* outFile)
-{
-  ofstream out(outFile);
-
-  out << "Hamming Distance : Number of Pairs" << endl;
-  for(int i=1; i<=len; i++)
-  {
-      out << ("%d" , i) << (" : ") << ("%d" , (int)((float)dists[i]/(2.0 * rate))) << endl;
-  }
-
-  out.close();
-}
-
 // Compute full HD profile of sequence with no sketching, no multithreading
 // kVal - k
 // seqLen - length of sequence
@@ -183,7 +164,7 @@ void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
     {
         for(int j=i+1; j<numKmers; j++)
         {
-            dists[HD_FUNC(kmers[i]  , kmers[j] , kVal)] ++;
+            dists[HD_FUNC(kmers[i]  , kmers[j] , kVal)] +=2;
         }
     }
     free(kmers);
@@ -285,8 +266,8 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
 // seqLen - length of sequence
 // seq - sequence to analyze
 // numThreads - number of threads to run
-// outFile - file results are written to
-void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFile)
+// dists - array to store HDs in
+void multithread(int kVal , int seqLen , int* seq , int numThreads , unsigned int* dists)
 {
     int numKmers = (seqLen - kVal) + 1;
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
@@ -332,12 +313,11 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFi
             const uint128 ki = kmers[i];
             for (int j = i + 1; j < numKmers; j++) {
                 int hd = hdPC(ki, kmers[j], kVal);
-                hist[hd]++;
+                hist[hd]+=2;
             }
         }
     }
 
-    std::vector<uint64_t> dists(kVal + 1 , 0);
     for(int t=0; t<numThreads; t++)
     {
         for(int h=0; h<=kVal; h++)
@@ -347,7 +327,6 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFi
     }
     
     free(kmers);
-    output_multithread(dists , kVal , 0.5 , outFile);
 }
 
 // Compute sketch of HD profile of sequence with multithreading
@@ -357,8 +336,8 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFi
 // theta1 - row sampling rate
 // theta2 - column sampling rate
 // numThreads - number of threads to run
-// outFile - file results are written to
-void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , double theta2 , int numThreads , char* outFile)
+// dists - array to store HDs in
+void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , double theta2 , int numThreads , unsigned int* dists)
 {
     // arbitrary seeds for hashing
     uint32_t seed1 = 42;
@@ -446,7 +425,6 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
         }
     }
 
-    std::vector<uint64_t> dists(kVal + 1 , 0);
     for(int t=0; t<numThreads; t++)
     {
         for(int h=0; h<=kVal; h++)
@@ -454,8 +432,6 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
             dists[h] += local_dists[t][h];
         }
     }
-
-    output_multithread(dists , kVal , (theta1*theta2) , outFile);
 }
 
 int main(int argc, char* argv[]) {
@@ -464,8 +440,8 @@ int main(int argc, char* argv[]) {
     int seqLen = 0;
     int kVal = 0;
     // Default is full profile with no multithreading
-    double theta1 = 1;
-    double theta2 = 1;
+    double theta1 = 1.0;
+    double theta2 = 1.0;
     int numThreads = 1;
 
     // parse arguments
@@ -558,6 +534,9 @@ int main(int argc, char* argv[]) {
         seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
     }
 
+    // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
+    unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(unsigned int));
+
     // Run correct method
 
     // multithreaded
@@ -567,33 +546,28 @@ int main(int argc, char* argv[]) {
         // sketching with multithreading
         if(theta1*theta2 != 1)
         {
-            sketch_multithread(kVal , retrievedLen , seq , theta1 , theta2 , numThreads , outptFile);
+            sketch_multithread(kVal , retrievedLen , seq , theta1 , theta2 , numThreads , dists);
         }
         // full profile
         else
         {
-            multithread(kVal , retrievedLen , seq , numThreads , outptFile);
+            multithread(kVal , retrievedLen , seq , numThreads , dists);
         }
     }
     // sketching
     else if(theta1*theta2 != 1)
     {
-        // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
-        unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(unsigned int));
         sketch(kVal , retrievedLen , seq , theta1 , theta2 , dists);
-        output(dists , kVal , (theta1*theta2) , outptFile);
-        free(dists);
     }
     // full profile
     else
     {
-        // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
-        unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(unsigned int));
         regularVer(kVal , retrievedLen , seq , dists);
-        output(dists , kVal , 0.5 , outptFile);
-        free(dists);
     }
+    
+    output(dists , kVal , (theta1*theta2) , outptFile);
 
+    free(dists);
     free(seq);
     free(charSeq);
 
