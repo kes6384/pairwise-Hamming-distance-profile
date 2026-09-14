@@ -210,7 +210,7 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
 
     // Sample k-mers
     uint128 mask;
-    for(int i=0; i < maxNum; i++)
+    for(int i=0; i < maxNum+1; i++)
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
@@ -293,7 +293,7 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , char* outFi
 
     // Iterate through and store k-mers
     uint128 mask;
-    for(int i=0; i < maxNum; i++)
+    for(int i=0; i < maxNum+1; i++)
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
@@ -372,7 +372,7 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
 
     uint128 mask;
     // Sample k-mers
-    for(int i=0; i < maxNum; i++)
+    for(int i=0; i < maxNum+1; i++)
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
