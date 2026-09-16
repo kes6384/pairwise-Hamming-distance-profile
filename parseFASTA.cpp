@@ -25,14 +25,14 @@ int getSequence(char* file , int seqLen , char* seq)
         if(nxtChar == '>')
         {
             // move file pointer to next line
-            while(nxtChar!='\n' && (sequence.peek() != EOF))
+            while(nxtChar!=10 && nxtChar!=13 && (sequence.peek() != EOF))
             {
                 nxtChar = sequence.get();
             }
             if(sequence.peek() == EOF)
                 break;
         }
-        if(nxtChar != '\n')
+        if(nxtChar != 10 && nxtChar != 13)
         {
             seq[charNum] = nxtChar;
             charNum ++;
