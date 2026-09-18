@@ -61,6 +61,118 @@ int getSeq(char* seq, char* file, int len)
   return getSequence(file, len, seq);
 }
 
+// Separates out and stores k-mers found in sequence
+// kmers - array to store kmers in
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+void storeKmers(uint128 *kmers , int kVal , int seqLen , int* seq)
+{
+    uint128 mask;
+    for(int i=0; i < maxNum+1; i++)
+    {
+        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+    }
+    uint128 kmer1;
+    for (int i=0; i<kVal-1; i++)
+    {
+        int c = seq[i];
+        for(int j=0; j < maxNum; j++)
+        {
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
+        }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
+    }
+    int count = 0;
+    for (int i=kVal-1; i<seqLen; i++)
+    {
+        int c = seq[i];
+        for(int j=0; j < maxNum; j++)
+        {
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
+        }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        kmers[count] = kmer1;
+        count ++;
+    }
+}
+
+// Separates out and stores a sketch of k-mers in sequence
+// kmersRow - vector to store row k-mers in
+// kmersCol - vector to store column k-mers in
+// countRow - address to store number of k-mers in row
+// countCol - address to store number of k-mers in column
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+// theta1 - row sampling rate
+// theta2 - column sampling rate
+void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kmersCol , int* countRow , int* countCol , int kVal , int seqLen , int* seq , double theta1 , double theta2)
+{
+    // arbitrary seeds for hashing
+    uint32_t seed1 = 42;
+    uint32_t seed2 = 24;
+    
+    uint128 mask;
+    for(int i=0; i < maxNum+1; i++)
+    {
+        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+    }
+    uint128 kmer1;
+    for (int i=0; i<kVal-1; i++)
+    {
+        int c = seq[i];
+        for(int j=0; j < maxNum; j++)
+        {
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
+        }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
+    }
+    *countRow = 0;
+    *countCol = 0;
+    uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
+    for (int i=kVal-1; i<seqLen; i++)
+    {
+        int c = seq[i];
+        for(int j=0; j < maxNum; j++)
+        {
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
+        }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        // Decide if kmer should be sampled
+        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
+        float hash = (float)(*hashed) / (float)(UINT32_MAX);
+        if(hash < theta1)
+        {
+            if(*countRow < kmersRow.size())
+            {
+                kmersRow[*countRow] = kmer1;
+            }
+            else
+            {
+                kmersRow.push_back(kmer1);
+            }
+            (*countRow) ++;
+        }
+        // Different seeds for row and column for independence
+        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed2 , hashed);
+        hash = (float)(*hashed) / (float)(UINT32_MAX);
+        if(hash < theta2)
+        {
+            if(*countCol < kmersCol.size())
+            {
+                kmersCol[*countCol] = kmer1;
+            }
+            else
+            {
+                kmersCol.push_back(kmer1);
+            }
+            (*countCol) ++;
+        }
+    }
+    free(hashed);
+}
+
 // Returns HD of kmer1 and kmer2
 // Uses bit manipulation and popcount
 int hdPC(uint128 kmer1, uint128 kmer2 , int k)
@@ -131,33 +243,7 @@ void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
 
     // Iterate through and store k-mers
-    uint128 mask;
-    for(int i=0; i < maxNum+1; i++)
-    {
-        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
-    }
-    uint128 kmer1;
-    for (int i=0; i<kVal-1; i++)
-    {
-        int c = seq[i];
-        for(int j=0; j < maxNum; j++)
-        {
-            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-        }
-        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-    }
-    int count = 0;
-    for (int i=kVal-1; i<seqLen; i++)
-    {
-        int c = seq[i];
-        for(int j=0; j < maxNum; j++)
-        {
-            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-        }
-        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-        kmers[count] = kmer1;
-        count ++;
-    }
+    storeKmers(kmers , kVal , seqLen , seq);
 
     // Calculate HD for each pair
     for (int i=0; i<numKmers; i++)
@@ -178,76 +264,18 @@ void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
 // theta2 - column sampling rate
 // dists - array to store HDs in
 void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , unsigned int* dists)
-{
-    // arbitrary seeds for hashing
-    uint32_t seed1 = 42;
-    uint32_t seed2 = 24;
-    
+{   
     int numKmers = (seqLen - kVal) + 1;
     uint128 empty;
     // Initially assume needed space based on sampling rate
     std::vector<uint128> kmersRow((int)(numKmers*(theta1*theta2)) , empty);
     std::vector<uint128> kmersCol((int)(numKmers*(theta1*theta2)) , empty);
 
+    int countRow;
+    int countCol;
+
     // Sample k-mers
-    uint128 mask;
-    for(int i=0; i < maxNum+1; i++)
-    {
-        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
-    }
-    uint128 kmer1;
-    for (int i=0; i<kVal-1; i++)
-    {
-        int c = seq[i];
-        for(int j=0; j < maxNum; j++)
-        {
-            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-        }
-        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-    }
-    int countRow = 0;
-    int countCol = 0;
-    uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
-    for (int i=kVal-1; i<seqLen; i++)
-    {
-        int c = seq[i];
-        for(int j=0; j < maxNum; j++)
-        {
-            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-        }
-        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-        // Decide if kmer should be sampled
-        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
-        float hash = (float)(*hashed) / (float)(UINT32_MAX);
-        if(hash < theta1)
-        {
-            if(countRow < kmersRow.size())
-            {
-                kmersRow[countRow] = kmer1;
-            }
-            else
-            {
-                kmersRow.push_back(kmer1);
-            }
-            countRow ++;
-        }
-        // Different seeds for row and column for independence
-        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed2 , hashed);
-        hash = (float)(*hashed) / (float)(UINT32_MAX);
-        if(hash < theta2)
-        {
-            if(countCol < kmersCol.size())
-            {
-                kmersCol[countCol] = kmer1;
-            }
-            else
-            {
-                kmersCol.push_back(kmer1);
-            }
-            countCol ++;
-        }
-    }
-    free(hashed);
+    storeKmersSketch(kmersRow , kmersCol , &countRow , &countCol , kVal , seqLen , seq , theta1 , theta2);
 
     // Calculate HD for sampled k-mers
     for(int i=0; i<countRow; i++)
@@ -273,33 +301,7 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , unsigned in
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
 
     // Iterate through and store k-mers
-    uint128 mask;
-    for(int i=0; i < maxNum+1; i++)
-    {
-        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
-    }
-    uint128 kmer1;
-    for (int i=0; i<kVal-1; i++)
-    {
-        int c = seq[i];
-        for(int j=0; j < maxNum; j++)
-        {
-            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-        }
-        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-    }
-    int count = 0;
-    for (int i=kVal-1; i<seqLen; i++)
-    {
-        int c = seq[i];
-        for(int j=0; j < maxNum; j++)
-        {
-            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-        }
-        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-        kmers[count] = kmer1;
-        count ++;
-    }
+    storeKmers(kmers , kVal , seqLen , seq);
 
     // Calculate HD of each k-mer pair
     std::vector<vector<uint64_t>> local_dists(numThreads , vector<uint64_t>(kVal + 1 , 0));
@@ -339,74 +341,17 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , unsigned in
 // dists - array to store HDs in
 void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , double theta2 , int numThreads , unsigned int* dists)
 {
-    // arbitrary seeds for hashing
-    uint32_t seed1 = 42;
-    uint32_t seed2 = 24;
-
     int numKmers = (seqLen - kVal) + 1;
     uint128 empty;
     // Initially assume needed space based on sampling rate
     std::vector<uint128> kmersRow((int)(numKmers*(theta1*theta2)) , empty);
     std::vector<uint128> kmersCol((int)(numKmers*(theta1*theta2)) , empty);
 
-    uint128 mask;
+    int countRow;
+    int countCol;
+
     // Sample k-mers
-    for(int i=0; i < maxNum+1; i++)
-    {
-        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
-    }
-    uint128 kmer1;
-    for (int i=0; i<kVal-1; i++)
-    {
-        int c = seq[i];
-        for(int j=0; j < maxNum; j++)
-        {
-            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-        }
-        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-    }
-    int countRow = 0;
-    int countCol = 0;
-    uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
-    for (int i=kVal-1; i<seqLen; i++)
-    {
-        int c = seq[i];
-        for(int j=0; j < maxNum; j++)
-        {
-            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-        }
-        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-        // decide if k-mer should be sampled
-        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
-        float hash = (float)(*hashed) / (float)(UINT32_MAX);
-        if(hash < theta1)
-        {
-            if(countRow < kmersRow.size())
-            {
-                kmersRow[countRow] = kmer1;
-            }
-            else
-            {
-                kmersRow.push_back(kmer1);
-            }
-            countRow ++;
-        }
-        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed2 , hashed);
-        hash = (float)(*hashed) / (float)(UINT32_MAX);
-        if(hash < theta2)
-        {
-            if(countCol < kmersCol.size())
-            {
-                kmersCol[countCol] = kmer1;
-            }
-            else
-            {
-                kmersCol.push_back(kmer1);
-            }
-            countCol ++;
-        }
-    }
-    free(hashed);
+    storeKmersSketch(kmersRow , kmersCol , &countRow , &countCol , kVal , seqLen , seq , theta1 , theta2);
 
     // Calculate HD for sampled k-mers
     std::vector<vector<uint64_t>> local_dists(numThreads , vector<uint64_t>(kVal + 1 , 0));
