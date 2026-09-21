@@ -9,8 +9,9 @@ All of the provided methods are contained within profile.cpp. Required open sour
 ## REQUIREMENTS  
   
 C++ $\geq 20$  
-Windows OS $\geq 11$  
+Windows OS $\geq 11$ or Linux OS $\geq _$  
   
+Results may differ when generating a sketch instead of the full profile across different operating systems due to the use of hashing.  
   
 ## INSTALL AND COMPILING  
 
@@ -25,19 +26,19 @@ g++ -O3 -fPIC -fopenmp -std=c++20 -pipe -D_FILE_OFFSET_BITS=64 -o profile profil
 Once compiled, the tool can be used via the command line using the general format below:  
 
 ```
-cd pairwise-Hamming-distance-profile  
+<!--- cd pairwise-Hamming-distance-profile -->  
 ./profile -i [INPUT FILE] -o [OUTPUT FILE].txt -l [SEQUENCE LENGTH] -k [k] -s [ROW SAMPLE RATE] [COLUMN SAMPLE RATE] -t [NUMBER OF THREADS]  
 ```
 
 The arguments can be specified in any order using the options outlined below. The sampling rate and number of threads arguments are optional and can be used together. All other arguments are required. Omit the sampling rate arguments to generate the full profile. To generate a sketch instead of the full profile, you must include both a row and column sampling rate.  
 
-`-i` : FASTA file that contains the sequence you want to analyze  
+`-i` : FASTA file that contains the sequence you want to analyze; characters in the input file that are not A,C,T,U, or G will be ignored  
 `-o` : text file where results will be written to  
-`-l` : length of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE)  
-`-k` : length of k-mers, must be $k 1 \leq k \leq 128$ 
+`-l` : length of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). Must be $\lt$ UINT_MAX  
+`-k` : length of k-mers, must be $k 1 \leq k \leq 128$  
 `-s` : generate a sketch instead of the full profile. Requires both row and column sampling rates  
-&nbsp;&nbsp;&nbsp;&nbsp;- ROW SAMPLE RATE - rate at which to sample first k-mer in each pair  
-&nbsp;&nbsp;&nbsp;&nbsp;- COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair  
+&nbsp;&nbsp;&nbsp;&nbsp;- ROW SAMPLE RATE - rate at which to sample first k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
+&nbsp;&nbsp;&nbsp;&nbsp;- COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
 `-t` : run multithreaded version of the tool. Otherwise, the tool will run with one thread  
   
 ### EXAMPLES  
