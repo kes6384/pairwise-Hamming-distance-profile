@@ -10,14 +10,14 @@ using namespace std;
 // seqLen - length of sequence to get
 // seq - char array to store sequence in
 // returns the length of the sequence retrieved
-int getSequence(char* file , int seqLen , char* seq)
+unsigned int getSequence(char* file , unsigned int seqLen , char* seq)
 {
     ifstream sequence(file);
 
     if(!sequence)
         return 0;
 
-    int charNum = 0; // Number of characters read so far
+    unsigned int charNum = 0; // Number of characters read so far
     while ((charNum < seqLen) && (sequence.peek() != EOF))
     {
         char nxtChar = sequence.get();

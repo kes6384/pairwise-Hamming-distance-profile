@@ -56,7 +56,7 @@ const unsigned char seq_nt4_table[256] = { // translate ACGT to 0123
 // parse FASTA file using parseFASTA.cpp
 // seq - extracted sequence will be stored here
 // len - length of sequence to extract
-int getSeq(char* seq, char* file, int len)
+int getSeq(char* seq, char* file, unsigned int len)
 {
   return getSequence(file, len, seq);
 }
@@ -66,7 +66,7 @@ int getSeq(char* seq, char* file, int len)
 // kVal - k
 // seqLen - length of sequence
 // seq - sequence to analyze
-void storeKmers(uint128 *kmers , int kVal , int seqLen , int* seq)
+void storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , int* seq)
 {
     uint128 mask;
     for(int i=0; i < maxNum+1; i++)
@@ -84,7 +84,7 @@ void storeKmers(uint128 *kmers , int kVal , int seqLen , int* seq)
         kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
     }
     int count = 0;
-    for (int i=kVal-1; i<seqLen; i++)
+    for (unsigned int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
         for(int j=0; j < maxNum; j++)
@@ -107,7 +107,7 @@ void storeKmers(uint128 *kmers , int kVal , int seqLen , int* seq)
 // seq - sequence to analyze
 // theta1 - row sampling rate
 // theta2 - column sampling rate
-void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kmersCol , int* countRow , int* countCol , int kVal , int seqLen , int* seq , double theta1 , double theta2)
+void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kmersCol , unsigned int* countRow , unsigned int* countCol , int kVal , unsigned int seqLen , int* seq , double theta1 , double theta2)
 {
     // arbitrary seeds for hashing
     uint32_t seed1 = 42;
@@ -131,7 +131,7 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
     *countRow = 0;
     *countCol = 0;
     uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
-    for (int i=kVal-1; i<seqLen; i++)
+    for (unsigned int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
         for(int j=0; j < maxNum; j++)
@@ -237,18 +237,18 @@ void output(unsigned int *dists , int len , float rate , char* outFile)
 // seqLen - length of sequence
 // seq - sequence to analyze
 // dists - array to store HDs in
-void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
+void regularVer(int kVal, unsigned int seqLen , int* seq , unsigned int* dists)
 {
-    int numKmers = (seqLen - kVal) + 1;
+    unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
 
     // Iterate through and store k-mers
     storeKmers(kmers , kVal , seqLen , seq);
 
     // Calculate HD for each pair
-    for (int i=0; i<numKmers; i++)
+    for (unsigned int i=0; i<numKmers; i++)
     {
-        for(int j=i+1; j<numKmers; j++)
+        for(unsigned int j=i+1; j<numKmers; j++)
         {
             dists[HD_FUNC(kmers[i]  , kmers[j] , kVal)] +=2;
         }
@@ -263,25 +263,25 @@ void regularVer(int kVal, int seqLen , int* seq , unsigned int* dists)
 // theta1 - row sampling rate
 // theta2 - column sampling rate
 // dists - array to store HDs in
-void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , unsigned int* dists)
+void sketch(int kVal , unsigned int seqLen , int* seq , double theta1 , double theta2 , unsigned int* dists)
 {   
-    int numKmers = (seqLen - kVal) + 1;
+    unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 empty;
     // Initially assume needed space based on sampling rate
-    std::vector<uint128> kmersRow((int)(numKmers*(theta1*theta2)) , empty);
-    std::vector<uint128> kmersCol((int)(numKmers*(theta1*theta2)) , empty);
+    std::vector<uint128> kmersRow((unsigned int)(numKmers*(theta1*theta2)) , empty);
+    std::vector<uint128> kmersCol((unsigned int)(numKmers*(theta1*theta2)) , empty);
 
-    int countRow;
-    int countCol;
+    unsigned int countRow;
+    unsigned int countCol;
 
     // Sample k-mers
     storeKmersSketch(kmersRow , kmersCol , &countRow , &countCol , kVal , seqLen , seq , theta1 , theta2);
 
     // Calculate HD for sampled k-mers
-    for(int i=0; i<countRow; i++)
+    for(unsigned int i=0; i<countRow; i++)
     {
         uint128 kmer1 = kmersRow[i];
-        for(int j=0; j<countCol; j++)
+        for(unsigned int j=0; j<countCol; j++)
         {
             uint128 kmer2 = kmersCol[j];
             dists[HD_FUNC(kmer1 , kmer2 , kVal)] ++;
@@ -295,9 +295,9 @@ void sketch(int kVal , int seqLen , int* seq , double theta1 , double theta2 , u
 // seq - sequence to analyze
 // numThreads - number of threads to run
 // dists - array to store HDs in
-void multithread(int kVal , int seqLen , int* seq , int numThreads , unsigned int* dists)
+void multithread(int kVal , unsigned int seqLen , int* seq , int numThreads , unsigned int* dists)
 {
-    int numKmers = (seqLen - kVal) + 1;
+    unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
 
     // Iterate through and store k-mers
@@ -311,9 +311,9 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , unsigned in
         int tid = omp_get_thread_num();
         auto& hist = local_dists[tid];
         #pragma omp for schedule(dynamic , 1)
-        for (int i = 0; i < numKmers; i++) {
+        for (unsigned int i = 0; i < numKmers; i++) {
             const uint128 ki = kmers[i];
-            for (int j = i + 1; j < numKmers; j++) {
+            for (unsigned int j = i + 1; j < numKmers; j++) {
                 int hd = hdPC(ki, kmers[j], kVal);
                 hist[hd]+=2;
             }
@@ -339,16 +339,16 @@ void multithread(int kVal , int seqLen , int* seq , int numThreads , unsigned in
 // theta2 - column sampling rate
 // numThreads - number of threads to run
 // dists - array to store HDs in
-void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , double theta2 , int numThreads , unsigned int* dists)
+void sketch_multithread(int kVal , unsigned int seqLen , int* seq , double theta1 , double theta2 , int numThreads , unsigned int* dists)
 {
-    int numKmers = (seqLen - kVal) + 1;
+    unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 empty;
     // Initially assume needed space based on sampling rate
-    std::vector<uint128> kmersRow((int)(numKmers*(theta1*theta2)) , empty);
-    std::vector<uint128> kmersCol((int)(numKmers*(theta1*theta2)) , empty);
+    std::vector<uint128> kmersRow((unsigned int)(numKmers*(theta1*theta2)) , empty);
+    std::vector<uint128> kmersCol((unsigned int)(numKmers*(theta1*theta2)) , empty);
 
-    int countRow;
-    int countCol;
+    unsigned int countRow;
+    unsigned int countCol;
 
     // Sample k-mers
     storeKmersSketch(kmersRow , kmersCol , &countRow , &countCol , kVal , seqLen , seq , theta1 , theta2);
@@ -361,9 +361,9 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
         int tid = omp_get_thread_num();
         auto& hist = local_dists[tid];
         #pragma omp for schedule(dynamic , 1)
-        for (int i = 0; i < countRow; i++) {
+        for (unsigned int i = 0; i < countRow; i++) {
             const uint128 ki = kmersRow[i];
-            for (int j = 0; j < countCol; j++) {
+            for (unsigned int j = 0; j < countCol; j++) {
                 int hd = hdPC(ki, kmersCol[j], kVal);
                 hist[hd]++;
             }
@@ -382,7 +382,7 @@ void sketch_multithread(int kVal , int seqLen , int* seq , double theta1 , doubl
 int main(int argc, char* argv[]) {
     char* inptFile;
     char* outptFile;
-    int seqLen = 0;
+    unsigned int seqLen = 0;
     int kVal = 0;
     // Default is full profile with no multithreading
     double theta1 = 1.0;
@@ -456,7 +456,7 @@ int main(int argc, char* argv[]) {
         }
     }
     // Check for argument errors
-    if(kVal > 128 || kVal < 1 || seqLen < 1 || seqLen < kVal || numThreads < 1 || theta1 <= 0 || theta2 <= 0 || theta1 > 1 || theta2 > 1 || inptFile == NULL || outptFile == NULL || inptFile == "" || outptFile == "")
+    if(kVal > 128 || kVal < 1 || seqLen < kVal || numThreads < 1 || theta1 <= 0 || theta2 <= 0 || theta1 > 1 || theta2 > 1 || inptFile == NULL || outptFile == NULL || inptFile == "" || outptFile == "")
     {
         cout << "ARGUMENT ERROR" << endl;
         return 1;
@@ -469,12 +469,18 @@ int main(int argc, char* argv[]) {
 
     // Parse FASTA file to get sequence
     char *charSeq = (char *)malloc(seqLen + 1);
-    int retrievedLen = getSeq(charSeq , inptFile , seqLen);
+    unsigned int retrievedLen = getSeq(charSeq , inptFile , seqLen);
+
+    if(retrievedLen == 0)
+    {
+        cout << "INPUT FILE ERROR" << endl;
+        return 1;
+    }
 
     // 2-bit encoding
     int* seq = (int *)calloc(retrievedLen , sizeof(int));
     // Store as array of integers, each int is one encoded character
-    for (int i=0; i<retrievedLen; i++)
+    for (unsigned int i=0; i<retrievedLen; i++)
     {
         seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
     }
