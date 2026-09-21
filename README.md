@@ -9,7 +9,7 @@ All of the provided methods are contained within profile.cpp. Required open sour
 ## REQUIREMENTS  
   
 C++ $\geq 20$  
-Windows OS $\geq 11$ or Linux OS $\geq _$  
+Windows OS $\geq 11$ or Linux OS $\geq ?$  
   
 Results may differ when generating a sketch instead of the full profile across different operating systems due to the use of hashing.  
   
