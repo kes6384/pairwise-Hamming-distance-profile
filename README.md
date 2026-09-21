@@ -26,7 +26,6 @@ g++ -O3 -fPIC -fopenmp -std=c++20 -pipe -D_FILE_OFFSET_BITS=64 -o profile profil
 Once compiled, the tool can be used via the command line using the general format below:  
 
 ```
-<!--- cd pairwise-Hamming-distance-profile -->  
 ./profile -i [INPUT FILE] -o [OUTPUT FILE].txt -l [SEQUENCE LENGTH] -k [k] -s [ROW SAMPLE RATE] [COLUMN SAMPLE RATE] -t [NUMBER OF THREADS]  
 ```
 
