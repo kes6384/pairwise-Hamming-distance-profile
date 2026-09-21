@@ -14,7 +14,7 @@ Windows OS $\geq 11$ or Linux OS $\geq ?$
 Results may differ when generating a sketch instead of the full profile across different operating systems due to the use of hashing.  
   
 ## INSTALL AND COMPILING  
-
+  
 ```
 git clone https://github.com/kes6384/pairwise-Hamming-distance-profile.git  
 cd pairwise-Hamming-distance-profile  
@@ -36,8 +36,8 @@ The arguments can be specified in any order using the options outlined below. Th
 `-l` : length of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). Must be $\lt$ UINT_MAX  
 `-k` : length of k-mers, must be $k 1 \leq k \leq 128$  
 `-s` : generate a sketch instead of the full profile. Requires both row and column sampling rates; overall sampling rate = ROW SAMPLE RATE * COLUMN SAMPLE RATE   
-&nbsp;&nbsp;&nbsp;&nbsp;*ROW SAMPLE RATE - rate at which to sample first k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
-&nbsp;&nbsp;&nbsp;&nbsp;*COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ROW SAMPLE RATE - rate at which to sample first k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
 `-t` : run multithreaded version of the tool. Otherwise, the tool will run with one thread  
   
 ### EXAMPLES  
