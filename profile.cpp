@@ -483,6 +483,11 @@ int main(int argc, char* argv[]) {
     for (unsigned int i=0; i<retrievedLen; i++)
     {
         seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
+        // skip over invalid characters
+        if(seq[i] == 4)
+        {
+            i --;
+        }
     }
 
     // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
