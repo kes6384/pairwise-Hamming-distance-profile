@@ -36,14 +36,14 @@ The arguments can be specified in any order using the options outlined below. Th
 `-l` : length of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). Must be $\lt$ UINT_MAX  
 `-k` : length of k-mers, must be $k 1 \leq k \leq 128$  
 `-s` : generate a sketch instead of the full profile. Requires both row and column sampling rates; overall sampling rate = ROW SAMPLE RATE * COLUMN SAMPLE RATE   
-&nbsp;&nbsp;&nbsp;&nbsp;- ROW SAMPLE RATE - rate at which to sample first k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
-&nbsp;&nbsp;&nbsp;&nbsp;- COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
+&nbsp;&nbsp;&nbsp;&nbsp;*ROW SAMPLE RATE - rate at which to sample first k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
+&nbsp;&nbsp;&nbsp;&nbsp;*COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
 `-t` : run multithreaded version of the tool. Otherwise, the tool will run with one thread  
   
 ### EXAMPLES  
 The FASTA file used for the following examples and the results of running the following commands can be found in the [test folder](/test/). 
 
-To use one thread to calculate the full Hamming distance profile of 32-mers for the first 10,000 characters of the sequence from the file test.fna in the folder test and store the results in results.txt, any of the following three commands will work:
+To use one thread to calculate the full Hamming distance profile of 32-mers for the first 10,000 characters of the sequence from the file test.fna in the folder test and store the results in results.txt, any of the following four commands will work:
 ```
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32
 ```
@@ -57,7 +57,7 @@ To use one thread to calculate the full Hamming distance profile of 32-mers for 
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 1.0 1.0 -t 1
 ```
   
-To use one thread to sample 32-mer pairs at a rate of 0.25, any of the following commands will work:
+To use one thread to sample 32-mer pairs at an overall rate of 0.25 (row sampling rate 0.5, column sampling rate 0.5), any of the following commands will work:
 ```
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 0.5 0.5
 ```
@@ -73,7 +73,7 @@ To calculate the full profile using 4 threads, any of the following commands wil
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 1.0 1.0 -t 4
 ```
   
-To use 4 threads to sample 32-mer pairs at a rate of 0.25, use the following command:
+To use 4 threads to sample 32-mer pairs at an overall rate of 0.25 (row sampling rate 0.5, column sampling rate 0.5), use the following command:
 ```
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 0.5 0.5 -t 4
 ```
