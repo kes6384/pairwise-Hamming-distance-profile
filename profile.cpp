@@ -487,6 +487,7 @@ int main(int argc, char* argv[]) {
         if(seq[i] == 4)
         {
             i --;
+            retrievedLen --;
         }
     }
 
