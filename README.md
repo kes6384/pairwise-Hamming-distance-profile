@@ -84,4 +84,4 @@ The results of running the tool indicate the number of k-mer pairs in the given 
   
 Hamming Distance : Number of Pairs
   
-For example outputs, please see the [test folder](/test/) found in the repo. All example outputs were generated using k = 32 and sequence length = 10,000. [results_fullProfile.txt](/test/results_fullProfile.txt) was generated using the default method. [results_sampleRate0.5.txt](/test/results_sampleRate0.5.txt) was generated using a row sampling rate of 0.5 and a column sampling rate of 0.5. Changing the number of threads has no effect on the output generated.  
+For example outputs, please see the [test folder](/test/) found in the repo. [results_fullProfile_10000_32.txt](/test/results_fullProfile_10000_32.txt) and [results_fullProfile_100000_32.txt](/test/results_fullProfile_100000_32.txt) were generated using the default method. [results_sampleRate0.5_10000_32.txt](/test/results_sampleRate0.5.txt) was generated using a row sampling rate of 0.5 and a column sampling rate of 0.5. The results files are named according to the sequence length and k used. Changing the number of threads has no effect on the output generated.  
