@@ -34,7 +34,7 @@ int maxNum;
 uint64_t popMask;
 uint64_t popMask2;
 
-const unsigned char seq_nt4_table[256] = { // translate ACGT to 0123
+const unsigned char seq_nt4_table[256] = { // translate ACGT/U to 0123
 	0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
@@ -382,7 +382,7 @@ void sketch_multithread(int kVal , unsigned int seqLen , int* seq , double theta
 int main(int argc, char* argv[]) {
     char* inptFile;
     char* outptFile;
-    unsigned int seqLen = 0;
+    unsigned int seqLen = UINT_MAX - 1; // Default = read entire input file
     int kVal = 0;
     // Default is full profile with no multithreading
     double theta1 = 1.0;
@@ -470,7 +470,6 @@ int main(int argc, char* argv[]) {
     // Parse FASTA file to get sequence
     char *charSeq = (char *)malloc(seqLen + 1);
     unsigned int retrievedLen = getSeq(charSeq , inptFile , seqLen);
-
     if(retrievedLen == 0)
     {
         cout << "INPUT FILE ERROR" << endl;

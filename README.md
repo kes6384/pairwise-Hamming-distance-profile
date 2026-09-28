@@ -1,17 +1,17 @@
 # PAIRWISE HAMMING DISTANCE PROFILE  
   
-This tool offers several methods to compute the pairwise Hamming distance profile of a given sequence. It is designed for use with FASTA files and $k \leq 128$. The tool can be compiled and run using the command line. The results are output to a user-specified text file.  
+This tool includes several methods to compute the pairwise Hamming distance profile of a given sequence. It is designed for use with FASTA files and $k \leq 128$. The tool can be compiled and run using the command line. The results are output to a user-specified text file.  
   
 The tool can be used to compute the full Hamming distance profile of a sequence, or to compute a sketch of the profile for faster (but less accurate) results. Support for multithreading is also provided.  
   
-All of the provided methods are contained within profile.cpp. Required open source libraries are provided in the repo. MurmurHash repo: https://github.com/aappleby/smhasher/tree/master  
+All of the provided methods are contained within profile.cpp and parseFASTA.cpp. Required open source libraries are provided in the repo. MurmurHash was created by Austin Appleby. The MurmurHash repo can be found here: https://github.com/aappleby/smhasher/tree/master  
 
 ## REQUIREMENTS  
   
 C++ $\geq 20$  
 Windows OS $\geq 11$ or Linux OS $\geq ?$  
   
-Results may differ when generating a sketch instead of the full profile across different operating systems due to the use of hashing.  
+Due to the use of hashing, results may differ across operating systems when generating a sketch instead of the full profile.  
   
 ## INSTALL AND COMPILING  
   
@@ -29,11 +29,11 @@ Once compiled, the tool can be used via the command line using the general forma
 ./profile -i [INPUT FILE] -o [OUTPUT FILE].txt -l [SEQUENCE LENGTH] -k [k] -s [ROW SAMPLE RATE] [COLUMN SAMPLE RATE] -t [NUMBER OF THREADS]  
 ```
 
-The arguments can be specified in any order using the options outlined below. The sampling rate and number of threads arguments are optional and can be used together. All other arguments are required. Omit the sampling rate arguments to generate the full profile. To generate a sketch instead of the full profile, you must include both a row and column sampling rate.  
+The arguments can be specified in any order using the options outlined below. The sampling rate and number of threads arguments are optional and can be used together. The sequence length is also optional; if not specified, the entire sequence in the input file will be read. All other arguments are required. Omit the sampling rate arguments to generate the full profile. To generate a sketch instead of the full profile, you must include both a row and column sampling rate.  
 
 `-i` : FASTA file that contains the sequence you want to analyze; characters in the input file that are not A,C,T,U, or G will be ignored  
 `-o` : text file where results will be written to  
-`-l` : length of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). Must be $\lt$ UINT_MAX  
+`-l` : length (in base pairs) of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). If not specified, the entire sequence in INPUT FILE will be read. Must be $\lt$ UINT_MAX  
 `-k` : length of k-mers, must be $k 1 \leq k \leq 128$  
 `-s` : generate a sketch instead of the full profile. Requires both row and column sampling rates; overall sampling rate = ROW SAMPLE RATE * COLUMN SAMPLE RATE   
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ROW SAMPLE RATE - rate at which to sample first k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
@@ -57,7 +57,7 @@ To use one thread to calculate the full Hamming distance profile of 32-mers for 
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 1.0 1.0 -t 1
 ```
   
-To use one thread to sample 32-mer pairs at an overall rate of 0.25 (row sampling rate 0.5, column sampling rate 0.5), any of the following commands will work:
+To use one thread to sample 32-mer pairs at an overall rate of 0.25 (row sampling rate 0.5, column sampling rate 0.5), either of the following commands will work:
 ```
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 0.5 0.5
 ```
@@ -65,7 +65,7 @@ To use one thread to sample 32-mer pairs at an overall rate of 0.25 (row samplin
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 0.5 0.5 -t 1
 ```
   
-To calculate the full profile using 4 threads, any of the following commands will work:
+To calculate the full profile using 4 threads, either of the following commands will work:
 ```
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -t 4
 ```
@@ -84,4 +84,4 @@ The results of running the tool indicate the number of k-mer pairs in the given 
   
 Hamming Distance : Number of Pairs
   
-For example outputs, please see the [test folder](/test/) found in the repo. [results_fullProfile_10000_32.txt](/test/results_fullProfile_10000_32.txt) and [results_fullProfile_100000_32.txt](/test/results_fullProfile_100000_32.txt) were generated using the default method. [results_sampleRate0.5_10000_32.txt](/test/results_sampleRate0.5_10000_32.txt) and [results_sampleRate0.5_100000_32.txt](/test/results_sampleRate0.5_100000_32.txt) were generated using a row sampling rate of 0.5 and a column sampling rate of 0.5. The results files are named according to the sequence length and k used. Changing the number of threads has no effect on the output generated.  
+For example output, please see the [test folder](/test/) found in the repo. [results_fullProfile_10000_32.txt](/test/results_fullProfile_10000_32.txt) and [results_fullProfile_100000_32.txt](/test/results_fullProfile_100000_32.txt) were generated using the default method. [results_sampleRate0.5_10000_32.txt](/test/results_sampleRate0.5_10000_32.txt) and [results_sampleRate0.5_100000_32.txt](/test/results_sampleRate0.5_100000_32.txt) were generated using a row sampling rate of 0.5 and a column sampling rate of 0.5 for an overall sampling rate of 0.25. The results files are named according to the sequence length and k used. Changing the number of threads has no effect on the output generated.  
