@@ -61,6 +61,31 @@ int getSeq(char* seq, char* file, unsigned int len)
   return getSequence(file, len, seq);
 }
 
+uint128 startKmer(int kVal , int* seq , uint128 *mask , int startIndex)
+{
+    uint128 kmer;
+    for (int i=startIndex; i<(kVal-1)+startIndex; i++)
+    {
+        int c = seq[i];
+        // if k-mer includes an invalid character, drop it and get next k-mer
+        if(c == 4)
+        {
+            kmer.fullKmer[0] = 0;
+            kmer.fullKmer[1] = 0;
+            kmer.fullKmer[2] = 0;
+            kmer.fullKmer[3] = 0;
+            startIndex += (i + 1);
+            continue;
+        }
+        for(int j=0; j < maxNum; j++)
+        {
+            kmer.fullKmer[j] = ((kmer.fullKmer[j] << 2) | (kmer.fullKmer[j+1] >> 62)) & (*mask).fullKmer[maxNum-j];
+        }
+        kmer.fullKmer[maxNum] = ((kmer.fullKmer[maxNum] << 2) | (uint64_t)c) & (*mask).fullKmer[0];
+    }
+    return kmer;
+}
+
 // Separates out and stores k-mers found in sequence
 // kmers - array to store kmers in
 // kVal - k
@@ -73,20 +98,18 @@ void storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , int* seq)
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
-    uint128 kmer1;
-    for (int i=0; i<kVal-1; i++)
-    {
-        int c = seq[i];
-        for(int j=0; j < maxNum; j++)
-        {
-            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-        }
-        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-    }
+    uint128 kmer1 = startKmer(kVal , seq , &mask , 0);
     int count = 0;
     for (unsigned int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
+        // if k-mer includes an invalid character, drop it and get next k-mer
+        if(c == 4)
+        {
+            kmer1 = startKmer(kVal , seq , &mask , i+1);
+            i += kVal;
+            continue;
+        }
         for(int j=0; j < maxNum; j++)
         {
             kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
@@ -118,22 +141,20 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
-    uint128 kmer1;
-    for (int i=0; i<kVal-1; i++)
-    {
-        int c = seq[i];
-        for(int j=0; j < maxNum; j++)
-        {
-            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-        }
-        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-    }
+    uint128 kmer1 = startKmer(kVal , seq , &mask , 0);
     *countRow = 0;
     *countCol = 0;
     uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
     for (unsigned int i=kVal-1; i<seqLen; i++)
     {
         int c = seq[i];
+        // if k-mer includes an invalid character, drop it and get next k-mer
+        if(c == 4)
+        {
+            kmer1 = startKmer(kVal , seq , &mask , i+1);
+            i += kVal;
+            continue;
+        }
         for(int j=0; j < maxNum; j++)
         {
             kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
@@ -482,12 +503,12 @@ int main(int argc, char* argv[]) {
     for (unsigned int i=0; i<retrievedLen; i++)
     {
         seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
-        // skip over invalid characters
+        /* skip over invalid characters
         if(seq[i] == 4)
         {
             i --;
             retrievedLen --;
-        }
+        }*/
     }
 
     // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
