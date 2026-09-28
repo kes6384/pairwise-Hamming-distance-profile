@@ -240,7 +240,7 @@ int hdPC(uint128 kmer1, uint128 kmer2 , int k)
 // len - length of array of Hamming distance counts (equivalent to k-mer size, since max HD is k)
 // rate - sampling rate (theta1 * theta2); equals 1 if not sketch
 // outFile - file results are written to
-void output(unsigned int *dists , int len , float rate , char* outFile)
+void output(unsigned long long *dists , int len , float rate , char* outFile)
 {
   ofstream out(outFile);
 
@@ -258,7 +258,7 @@ void output(unsigned int *dists , int len , float rate , char* outFile)
 // seqLen - length of sequence
 // seq - sequence to analyze
 // dists - array to store HDs in
-void regularVer(int kVal, unsigned int seqLen , int* seq , unsigned int* dists)
+void regularVer(int kVal, unsigned int seqLen , int* seq , unsigned long long* dists)
 {
     unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
@@ -284,7 +284,7 @@ void regularVer(int kVal, unsigned int seqLen , int* seq , unsigned int* dists)
 // theta1 - row sampling rate
 // theta2 - column sampling rate
 // dists - array to store HDs in
-void sketch(int kVal , unsigned int seqLen , int* seq , double theta1 , double theta2 , unsigned int* dists)
+void sketch(int kVal , unsigned int seqLen , int* seq , double theta1 , double theta2 , unsigned long long* dists)
 {   
     unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 empty;
@@ -316,7 +316,7 @@ void sketch(int kVal , unsigned int seqLen , int* seq , double theta1 , double t
 // seq - sequence to analyze
 // numThreads - number of threads to run
 // dists - array to store HDs in
-void multithread(int kVal , unsigned int seqLen , int* seq , int numThreads , unsigned int* dists)
+void multithread(int kVal , unsigned int seqLen , int* seq , int numThreads , unsigned long long* dists)
 {
     unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
@@ -360,7 +360,7 @@ void multithread(int kVal , unsigned int seqLen , int* seq , int numThreads , un
 // theta2 - column sampling rate
 // numThreads - number of threads to run
 // dists - array to store HDs in
-void sketch_multithread(int kVal , unsigned int seqLen , int* seq , double theta1 , double theta2 , int numThreads , unsigned int* dists)
+void sketch_multithread(int kVal , unsigned int seqLen , int* seq , double theta1 , double theta2 , int numThreads , unsigned long long* dists)
 {
     unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 empty;
@@ -502,17 +502,11 @@ int main(int argc, char* argv[]) {
     // Store as array of integers, each int is one encoded character
     for (unsigned int i=0; i<retrievedLen; i++)
     {
-        seq[i] = seq_nt4_table[(uint8_t)charSeq[i]]; 
-        /* skip over invalid characters
-        if(seq[i] == 4)
-        {
-            i --;
-            retrievedLen --;
-        }*/
+        seq[i] = seq_nt4_table[(uint8_t)charSeq[i]];
     }
 
     // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
-    unsigned int *dists = (unsigned int *)calloc(kVal+1 , sizeof(unsigned int));
+    unsigned long long *dists = (unsigned long long *)calloc(kVal+1 , sizeof(unsigned long long));
 
     // Run correct method
 
