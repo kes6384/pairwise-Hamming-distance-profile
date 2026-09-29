@@ -33,7 +33,7 @@ The arguments can be specified in any order using the options outlined below. Th
 
 `-i` : FASTA file that contains the sequence you want to analyze; characters in the input file that are not A,C,T,U, or G will be ignored  
 `-o` : text file where results will be written to  
-`-l` : length (in base pairs) of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). If not specified, the entire sequence in INPUT FILE will be read. Must be $\lt$ UINT_MAX  
+`-l` : length (in base pairs) of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). If not specified, the entire sequence in INPUT FILE will be read. Must be $\lt$ 4,294,967,295  
 `-k` : length of k-mers, must be $k 1 \leq k \leq 128$  
 `-s` : generate a sketch instead of the full profile. Requires both row and column sampling rates; overall sampling rate = ROW SAMPLE RATE * COLUMN SAMPLE RATE   
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ROW SAMPLE RATE - rate at which to sample first k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
@@ -84,4 +84,4 @@ The results of running the tool indicate the number of k-mer pairs in the given 
   
 Hamming Distance : Number of Pairs
   
-For example output, please see the [test folder](/test/) found in the repo. [results_fullProfile_10000_32.txt](/test/results_fullProfile_10000_32.txt) and [results_fullProfile_100000_32.txt](/test/results_fullProfile_100000_32.txt) were generated using the default method. [results_sampleRate0.5_10000_32.txt](/test/results_sampleRate0.5_10000_32.txt) and [results_sampleRate0.5_100000_32.txt](/test/results_sampleRate0.5_100000_32.txt) were generated using a row sampling rate of 0.5 and a column sampling rate of 0.5 for an overall sampling rate of 0.25. The results files are named according to the sequence length and k used. Changing the number of threads has no effect on the output generated.  
+For example output, please see the [test folder](/test/) found in the repo. [results_fullProfile_10000_32.txt](/test/results_fullProfile_10000_32.txt) and [results_fullProfile_100000_32.txt](/test/results_fullProfile_100000_32.txt) were generated using the default method. [results_sampleRate0.5_10000_32.txt](/test/results_sampleRate0.5_10000_32.txt) and [results_sampleRate0.5_100000_32.txt](/test/results_sampleRate0.5_100000_32.txt) were generated using a row sampling rate of 0.5 and a column sampling rate of 0.5 for an overall sampling rate of 0.25. The results files are named according to the sequence length and k used. Changing the number of threads has no effect on the output generated. All example output was generated using Windows 11.  
