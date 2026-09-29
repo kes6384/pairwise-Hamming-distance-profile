@@ -15,6 +15,7 @@
 #include <random>
 #include <omp.h>
 #include <vector>
+#include <climits>
 #include "MurmurHash3.cpp" // https://github.com/aappleby/smhasher/tree/master
 #include "parseFASTA.cpp" // Simple FASTA parser
 
@@ -56,17 +57,18 @@ const unsigned char seq_nt4_table[256] = { // translate ACGT/U to 0123
 // parse FASTA file using parseFASTA.cpp
 // seq - extracted sequence will be stored here
 // len - length of sequence to extract
-int getSeq(char* seq, char* file, unsigned int len)
+// Returns the actual length of the sequence exracted
+unsigned int getSeq(char* seq, char* file, unsigned int len)
 {
   return getSequence(file, len, seq);
 }
 
-uint128 startKmer(int kVal , int* seq , uint128 *mask , int startIndex)
+uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int startIndex)
 {
     uint128 kmer;
-    for (int i=startIndex; i<(kVal-1)+startIndex; i++)
+    for (unsigned int i=startIndex; i<(kVal-1)+startIndex; i++)
     {
-        int c = seq[i];
+        char c = seq[i];
         // if k-mer includes an invalid character, drop it and get next k-mer
         if(c == 4)
         {
@@ -91,7 +93,7 @@ uint128 startKmer(int kVal , int* seq , uint128 *mask , int startIndex)
 // kVal - k
 // seqLen - length of sequence
 // seq - sequence to analyze
-void storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , int* seq)
+void storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* seq)
 {
     uint128 mask;
     for(int i=0; i < maxNum+1; i++)
@@ -102,7 +104,7 @@ void storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , int* seq)
     int count = 0;
     for (unsigned int i=kVal-1; i<seqLen; i++)
     {
-        int c = seq[i];
+        char c = seq[i];
         // if k-mer includes an invalid character, drop it and get next k-mer
         if(c == 4)
         {
@@ -130,7 +132,7 @@ void storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , int* seq)
 // seq - sequence to analyze
 // theta1 - row sampling rate
 // theta2 - column sampling rate
-void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kmersCol , unsigned int* countRow , unsigned int* countCol , int kVal , unsigned int seqLen , int* seq , double theta1 , double theta2)
+void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kmersCol , unsigned int* countRow , unsigned int* countCol , int kVal , unsigned int seqLen , char* seq , double theta1 , double theta2)
 {
     // arbitrary seeds for hashing
     uint32_t seed1 = 42;
@@ -147,7 +149,7 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
     uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
     for (unsigned int i=kVal-1; i<seqLen; i++)
     {
-        int c = seq[i];
+        char c = seq[i];
         // if k-mer includes an invalid character, drop it and get next k-mer
         if(c == 4)
         {
@@ -240,7 +242,7 @@ int hdPC(uint128 kmer1, uint128 kmer2 , int k)
 // len - length of array of Hamming distance counts (equivalent to k-mer size, since max HD is k)
 // rate - sampling rate (theta1 * theta2); equals 1 if not sketch
 // outFile - file results are written to
-void output(unsigned long long *dists , int len , float rate , char* outFile)
+void output(uint64_t *dists , int len , float rate , char* outFile)
 {
   ofstream out(outFile);
 
@@ -258,7 +260,7 @@ void output(unsigned long long *dists , int len , float rate , char* outFile)
 // seqLen - length of sequence
 // seq - sequence to analyze
 // dists - array to store HDs in
-void regularVer(int kVal, unsigned int seqLen , int* seq , unsigned long long* dists)
+void regularVer(int kVal, unsigned int seqLen , char* seq , uint64_t* dists)
 {
     unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
@@ -284,7 +286,7 @@ void regularVer(int kVal, unsigned int seqLen , int* seq , unsigned long long* d
 // theta1 - row sampling rate
 // theta2 - column sampling rate
 // dists - array to store HDs in
-void sketch(int kVal , unsigned int seqLen , int* seq , double theta1 , double theta2 , unsigned long long* dists)
+void sketch(int kVal , unsigned int seqLen , char* seq , double theta1 , double theta2 , uint64_t* dists)
 {   
     unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 empty;
@@ -316,7 +318,7 @@ void sketch(int kVal , unsigned int seqLen , int* seq , double theta1 , double t
 // seq - sequence to analyze
 // numThreads - number of threads to run
 // dists - array to store HDs in
-void multithread(int kVal , unsigned int seqLen , int* seq , int numThreads , unsigned long long* dists)
+void multithread(int kVal , unsigned int seqLen , char* seq , int numThreads , uint64_t* dists)
 {
     unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
@@ -360,7 +362,7 @@ void multithread(int kVal , unsigned int seqLen , int* seq , int numThreads , un
 // theta2 - column sampling rate
 // numThreads - number of threads to run
 // dists - array to store HDs in
-void sketch_multithread(int kVal , unsigned int seqLen , int* seq , double theta1 , double theta2 , int numThreads , unsigned long long* dists)
+void sketch_multithread(int kVal , unsigned int seqLen , char* seq , double theta1 , double theta2 , int numThreads , uint64_t* dists)
 {
     unsigned int numKmers = (seqLen - kVal) + 1;
     uint128 empty;
@@ -498,15 +500,16 @@ int main(int argc, char* argv[]) {
     }
 
     // 2-bit encoding
-    int* seq = (int *)calloc(retrievedLen , sizeof(int));
+    char* seq = (char *)calloc(retrievedLen , sizeof(char));
     // Store as array of integers, each int is one encoded character
     for (unsigned int i=0; i<retrievedLen; i++)
     {
         seq[i] = seq_nt4_table[(uint8_t)charSeq[i]];
     }
+    free(charSeq);
 
     // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
-    unsigned long long *dists = (unsigned long long *)calloc(kVal+1 , sizeof(unsigned long long));
+    uint64_t *dists = (uint64_t *)calloc(kVal+1 , sizeof(uint64_t));
 
     // Run correct method
 
@@ -540,7 +543,7 @@ int main(int argc, char* argv[]) {
 
     free(dists);
     free(seq);
-    free(charSeq);
+    //free(charSeq);
 
     return 0;
 }
