@@ -93,7 +93,8 @@ uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int startIndex
 // kVal - k
 // seqLen - length of sequence
 // seq - sequence to analyze
-void storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* seq)
+// returns the number of k-mers actually found (may be less than expected due to invalid characters)
+unsigned int storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* seq)
 {
     uint128 mask;
     for(int i=0; i < maxNum+1; i++)
@@ -101,7 +102,7 @@ void storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* seq)
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
     uint128 kmer1 = startKmer(kVal , seq , &mask , 0);
-    int count = 0;
+    unsigned int count = 0;
     for (unsigned int i=kVal-1; i<seqLen; i++)
     {
         char c = seq[i];
@@ -120,6 +121,7 @@ void storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* seq)
         kmers[count] = kmer1;
         count ++;
     }
+    return count;
 }
 
 // Separates out and stores a sketch of k-mers in sequence
@@ -242,14 +244,14 @@ int hdPC(uint128 kmer1, uint128 kmer2 , int k)
 // len - length of array of Hamming distance counts (equivalent to k-mer size, since max HD is k)
 // rate - sampling rate (theta1 * theta2); equals 1 if not sketch
 // outFile - file results are written to
-void output(uint64_t *dists , int len , float rate , char* outFile)
+void output(uint64_t *dists , int len , double rate , char* outFile)
 {
   ofstream out(outFile);
 
   out << "Hamming Distance : Number of Pairs" << endl;
   for(int i=1; i<=len; i++)
   {
-      out << ("%d" , i) << (" : ") << ("%d" , (int)((float)dists[i]/(2.0 * rate))) << endl;
+      out << ("%d" , i) << (" : ") << ("%d" , (uint64_t)(dists[i]/(2.0 * rate))) << endl;
   }
 
   out.close();
@@ -266,7 +268,7 @@ void regularVer(int kVal, unsigned int seqLen , char* seq , uint64_t* dists)
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
 
     // Iterate through and store k-mers
-    storeKmers(kmers , kVal , seqLen , seq);
+    numKmers = storeKmers(kmers , kVal , seqLen , seq);
 
     // Calculate HD for each pair
     for (unsigned int i=0; i<numKmers; i++)
@@ -324,7 +326,7 @@ void multithread(int kVal , unsigned int seqLen , char* seq , int numThreads , u
     uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
 
     // Iterate through and store k-mers
-    storeKmers(kmers , kVal , seqLen , seq);
+    numKmers = storeKmers(kmers , kVal , seqLen , seq);
 
     // Calculate HD of each k-mer pair
     std::vector<vector<uint64_t>> local_dists(numThreads , vector<uint64_t>(kVal + 1 , 0));
