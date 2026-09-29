@@ -58,10 +58,10 @@ const unsigned char seq_nt4_table[256] = { // translate ACGT/U to 0123
 // seq - extracted sequence will be stored here
 // len - length of sequence to extract
 // Returns the actual length of the sequence exracted
-unsigned int getSeq(char* seq, char* file, unsigned int len)
+/*unsigned int getSeq(char* seq, char* file, unsigned int len)
 {
   return getSequence(file, len, seq);
-}
+}*/
 
 uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int startIndex)
 {
@@ -492,7 +492,8 @@ int main(int argc, char* argv[]) {
 
     // Parse FASTA file to get sequence
     char *charSeq = (char *)malloc(seqLen + 1);
-    unsigned int retrievedLen = getSeq(charSeq , inptFile , seqLen);
+    unsigned int retrievedLen = getSequence(inptFile, seqLen, charSeq);
+    //unsigned int retrievedLen = getSeq(charSeq , inptFile , seqLen);
     if(retrievedLen == 0)
     {
         cout << "INPUT FILE ERROR" << endl;
