@@ -264,7 +264,6 @@ void output(uint64_t *dists , int len , char* outFile)
 void outputSketch(uint64_t *dists , int len , double rate , char* outFile)
 {
   ofstream out(outFile);
-    cout << (uint64_t)(dists[1]/2.0) << endl;
   out << "Hamming Distance : Number of Pairs" << endl;
   for(int i=1; i<=len; i++)
   {
@@ -438,7 +437,7 @@ int main(int argc, char* argv[]) {
 
         if(arg == "-i") //input file
         {
-            if(argc < (i + 1))
+            if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
                 return 1;
@@ -447,7 +446,7 @@ int main(int argc, char* argv[]) {
         }
         else if(arg == "-o") //output file
         {
-            if(argc < (i + 1))
+            if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
                 return 1;
@@ -456,7 +455,7 @@ int main(int argc, char* argv[]) {
         }
         else if(arg == "-l") //sequence length
         {
-            if(argc < (i + 1))
+            if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
                 return 1;
@@ -465,7 +464,7 @@ int main(int argc, char* argv[]) {
         }
         else if(arg == "-k") //k-mer length
         {
-            if(argc < (i + 1))
+            if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
                 return 1;
@@ -474,7 +473,7 @@ int main(int argc, char* argv[]) {
         }
         else if(arg == "-t") //multithreading
         {
-            if(argc < (i + 1))
+            if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
                 return 1;
@@ -483,7 +482,7 @@ int main(int argc, char* argv[]) {
         }
         else if(arg == "-s") //sketch
         {
-            if(argc < (i + 2))
+            if(argc <= (i + 2))
             {
                 cout << "ARGUMENT ERROR" << endl;
                 return 1;
