@@ -264,7 +264,7 @@ void output(uint64_t *dists , int len , char* outFile)
 void outputSketch(uint64_t *dists , int len , double rate , char* outFile)
 {
   ofstream out(outFile);
-
+    cout << (uint64_t)(dists[1]/2.0) << endl;
   out << "Hamming Distance : Number of Pairs" << endl;
   for(int i=1; i<=len; i++)
   {
