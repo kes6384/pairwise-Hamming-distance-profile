@@ -242,16 +242,33 @@ int hdPC(uint128 kmer1, uint128 kmer2 , int k)
 // Output array of Hamming distance counts to a text file
 // dists - array of Hamming distance counts
 // len - length of array of Hamming distance counts (equivalent to k-mer size, since max HD is k)
-// rate - sampling rate (theta1 * theta2); equals 1 if not sketch
 // outFile - file results are written to
-void output(uint64_t *dists , int len , double rate , char* outFile)
+void output(uint64_t *dists , int len , char* outFile)
 {
   ofstream out(outFile);
 
   out << "Hamming Distance : Number of Pairs" << endl;
   for(int i=1; i<=len; i++)
   {
-      out << ("%d" , i) << (" : ") << ("%d" , (uint64_t)(dists[i]/(2.0 * rate))) << endl;
+      out << i << " : " << (uint64_t)(dists[i]) << endl;
+  }
+
+  out.close();
+}
+
+// Output array of Hamming distance counts to a text file
+// dists - array of Hamming distance counts
+// len - length of array of Hamming distance counts (equivalent to k-mer size, since max HD is k)
+// rate - sampling rate (theta1 * theta2)
+// outFile - file results are written to
+void outputSketch(uint64_t *dists , int len , double rate , char* outFile)
+{
+  ofstream out(outFile);
+
+  out << "Hamming Distance : Number of Pairs" << endl;
+  for(int i=1; i<=len; i++)
+  {
+      out << i << " : " << (uint64_t)(dists[i]/(2.0 * rate)) << endl;
   }
 
   out.close();
@@ -275,7 +292,7 @@ void regularVer(int kVal, unsigned int seqLen , char* seq , uint64_t* dists)
     {
         for(unsigned int j=i+1; j<numKmers; j++)
         {
-            dists[HD_FUNC(kmers[i]  , kmers[j] , kVal)] +=2;
+            dists[HD_FUNC(kmers[i]  , kmers[j] , kVal)] ++;
         }
     }
     free(kmers);
@@ -340,7 +357,7 @@ void multithread(int kVal , unsigned int seqLen , char* seq , int numThreads , u
             const uint128 ki = kmers[i];
             for (unsigned int j = i + 1; j < numKmers; j++) {
                 int hd = hdPC(ki, kmers[j], kVal);
-                hist[hd]+=2;
+                hist[hd]++;
             }
         }
     }
@@ -524,25 +541,27 @@ int main(int argc, char* argv[]) {
         if(theta1*theta2 != 1)
         {
             sketch_multithread(kVal , retrievedLen , seq , theta1 , theta2 , numThreads , dists);
+            outputSketch(dists , kVal , (theta1 * theta2) , outptFile);
         }
         // full profile
         else
         {
             multithread(kVal , retrievedLen , seq , numThreads , dists);
+            output(dists , kVal , outptFile);
         }
     }
     // sketching
     else if(theta1*theta2 != 1)
     {
         sketch(kVal , retrievedLen , seq , theta1 , theta2 , dists);
+        outputSketch(dists , kVal , (theta1 * theta2) , outptFile);
     }
     // full profile
     else
     {
         regularVer(kVal , retrievedLen , seq , dists);
+        output(dists , kVal , outptFile);
     }
-    
-    output(dists , kVal , (theta1*theta2) , outptFile);
 
     free(dists);
     free(seq);
