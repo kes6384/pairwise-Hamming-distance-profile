@@ -9,7 +9,7 @@ All of the provided methods are contained within profile.cpp and parseFASTA.cpp.
 ## REQUIREMENTS  
   
 C++ $\geq 20$  
-Windows OS $\geq 11$ or Linux OS $\geq ?$  
+Windows OS $\geq 11$ or Linux Ubuntu distro $\geq 24.04$  
   
 Due to the use of hashing, results may differ across operating systems when generating a sketch instead of the full profile.  
   
@@ -34,7 +34,7 @@ The arguments can be specified in any order using the options outlined below. Th
 `-i` : FASTA file that contains the sequence you want to analyze; characters in the input file that are not A,C,T,U, or G will be ignored  
 `-o` : text file where results will be written to  
 `-l` : length (in base pairs) of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). If not specified, the entire sequence in INPUT FILE will be read. Must be $\lt$ 4,294,967,295  
-`-k` : length of k-mers, must be $k 1 \leq k \leq 128$  
+`-k` : length of k-mers, must be $1 \leq k \leq 128$  
 `-s` : generate a sketch instead of the full profile. Requires both row and column sampling rates; overall sampling rate = ROW SAMPLE RATE * COLUMN SAMPLE RATE   
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ROW SAMPLE RATE - rate at which to sample first k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
