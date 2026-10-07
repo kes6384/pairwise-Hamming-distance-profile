@@ -31,7 +31,7 @@ Once compiled, the tool can be run via the command line using the general format
 
 The arguments can be specified in any order using the options outlined below. The sampling rate, number of threads, and sequence length arguments are optional. All other arguments are required. If sequence length is not specified, the entire sequence in the input file will be read. Omit the sampling rate arguments to generate the full profile. To generate a sketch instead of the full profile, you must include both a row and column sampling rate.  
 
-`-i` : FASTA file containing the sequence to analyze; k-mers in the input file containing characters besides A,C,T,U, and G will be ignored   
+`-i` : FASTA file containing the sequence to analyze; k-mers containing characters besides A,C,T,U, and G will be ignored   
 `-o` : text file where results will be written to  
 `-l` : length (in base pairs) of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). If not specified, the entire sequence in INPUT FILE will be read. Must be $\lt$ 4,294,967,295  
 `-k` : length of k-mers, must be $1 \leq k \leq 128$  
