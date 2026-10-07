@@ -267,7 +267,7 @@ void outputSketch(uint64_t *dists , int len , double rate , char* outFile)
   out << "Hamming Distance : Number of Pairs" << endl;
   for(int i=1; i<=len; i++)
   {
-      out << i << " : " << (uint64_t)(dists[i]/(2.0 * rate)) << endl;
+      out << i << " : " << dists[i] << " | " << ((double)dists[i]/(2.0 * rate)) << endl;
   }
 
   out.close();
@@ -512,7 +512,7 @@ int main(int argc, char* argv[]) {
     char *charSeq = (char *)malloc(seqLen + 1);
     unsigned int retrievedLen = getSequence(inptFile, seqLen, charSeq);
     //unsigned int retrievedLen = getSeq(charSeq , inptFile , seqLen);
-    if(retrievedLen == 0)
+    if(retrievedLen <= 0)
     {
         cout << "INPUT FILE ERROR" << endl;
         return 1;
