@@ -1,6 +1,6 @@
 # PAIRWISE HAMMING DISTANCE PROFILE  
   
-This tool includes several methods to compute the pairwise Hamming distance profile of a given sequence. It is designed for use with FASTA files and $k \leq 128$. The tool can be compiled and run using the command line. The results are output to a user-specified text file.  
+This tool includes several methods to compute the pairwise Hamming distance profile of a given sequence. It is designed for use with FASTA files with sequences of length $\lt$ 4,294,967,295 and $k \leq 128$. The tool can be compiled and run using the command line. The results are output to a user-specified text file.  
   
 The tool can be used to compute the full Hamming distance profile of a sequence, or to compute a sketch of the profile for faster (but less accurate) results. Support for multithreading is also provided.  
   
@@ -23,15 +23,15 @@ g++ -O3 -fPIC -fopenmp -std=c++20 -pipe -D_FILE_OFFSET_BITS=64 -o profile profil
   
 ## RUNNING  
 
-Once compiled, the tool can be used via the command line using the general format below:  
+Once compiled, the tool can be run via the command line using the general format below:  
 
 ```
 ./profile -i [INPUT FILE] -o [OUTPUT FILE].txt -l [SEQUENCE LENGTH] -k [k] -s [ROW SAMPLE RATE] [COLUMN SAMPLE RATE] -t [NUMBER OF THREADS]  
 ```
 
-The arguments can be specified in any order using the options outlined below. The sampling rate and number of threads arguments are optional and can be used together. The sequence length is also optional; if not specified, the entire sequence in the input file will be read. All other arguments are required. Omit the sampling rate arguments to generate the full profile. To generate a sketch instead of the full profile, you must include both a row and column sampling rate.  
+The arguments can be specified in any order using the options outlined below. The sampling rate, number of threads, and sequence length arguments are optional. All other arguments are required. If sequence length is not specified, the entire sequence in the input file will be read. Omit the sampling rate arguments to generate the full profile. To generate a sketch instead of the full profile, you must include both a row and column sampling rate.  
 
-`-i` : FASTA file that contains the sequence you want to analyze; characters in the input file that are not A,C,T,U, or G will be ignored  
+`-i` : FASTA file containing the sequence to analyze; k-mers in the input file containing characters besides A,C,T,U, and G will be ignored   
 `-o` : text file where results will be written to  
 `-l` : length (in base pairs) of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). If not specified, the entire sequence in INPUT FILE will be read. Must be $\lt$ 4,294,967,295  
 `-k` : length of k-mers, must be $1 \leq k \leq 128$  
@@ -43,7 +43,7 @@ The arguments can be specified in any order using the options outlined below. Th
 ### EXAMPLES  
 The FASTA file used for the following examples and the results of running the following commands can be found in the [test folder](/test/). 
 
-To use one thread to calculate the full Hamming distance profile of 32-mers for the first 10,000 characters of the sequence from the file test.fna in the folder test and store the results in results.txt, any of the following four commands will work:
+Any of the following four commands will use one thread to calculate the full Hamming distance profile of 32-mers for the first 10,000 characters of the sequence from the file test.fna in the folder test and store the results in results.txt:
 ```
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32
 ```
@@ -57,7 +57,7 @@ To use one thread to calculate the full Hamming distance profile of 32-mers for 
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 1.0 1.0 -t 1
 ```
   
-To use one thread to sample 32-mer pairs at an overall rate of 0.25 (row sampling rate 0.5, column sampling rate 0.5), either of the following commands will work:
+Both of the following commands will use one thread to sample 32-mer pairs at an overall rate of 0.25 (row sampling rate 0.5, column sampling rate 0.5):
 ```
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 0.5 0.5
 ```
@@ -65,7 +65,7 @@ To use one thread to sample 32-mer pairs at an overall rate of 0.25 (row samplin
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 0.5 0.5 -t 1
 ```
   
-To calculate the full profile using 4 threads, either of the following commands will work:
+Both of the following commands will calculate the full profile using 4 threads:
 ```
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -t 4
 ```
@@ -73,7 +73,7 @@ To calculate the full profile using 4 threads, either of the following commands 
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 1.0 1.0 -t 4
 ```
   
-To use 4 threads to sample 32-mer pairs at an overall rate of 0.25 (row sampling rate 0.5, column sampling rate 0.5), use the following command:
+The following command will use 4 threads to sample 32-mer pairs at an overall rate of 0.25 (row sampling rate 0.5, column sampling rate 0.5):
 ```
 ./profile -i test/test.fna -o results.txt -l 10000 -k 32 -s 0.5 0.5 -t 4
 ```
@@ -84,4 +84,4 @@ The results of running the tool indicate the number of k-mer pairs in the given 
   
 Hamming Distance : Number of Pairs
   
-For example output, please see the [test folder](/test/) found in the repo. [results_fullProfile_10000_32.txt](/test/results_fullProfile_10000_32.txt) and [results_fullProfile_100000_32.txt](/test/results_fullProfile_100000_32.txt) were generated using the default method. [results_sampleRate0.5_10000_32.txt](/test/results_sampleRate0.5_10000_32.txt) and [results_sampleRate0.5_100000_32.txt](/test/results_sampleRate0.5_100000_32.txt) were generated using a row sampling rate of 0.5 and a column sampling rate of 0.5 for an overall sampling rate of 0.25. The results files are named according to the sequence length and k used. Changing the number of threads has no effect on the output generated. All example output was generated using Windows 11.  
+For example output, please see the [test folder](/test/) found in the repo. [results_fullProfile_10000_32.txt](/test/results_fullProfile_10000_32.txt) and [results_fullProfile_100000_32.txt](/test/results_fullProfile_100000_32.txt) were generated using the default method. [results_sampleRate0.5_10000_32.txt](/test/results_sampleRate0.5_10000_32.txt) and [results_sampleRate0.5_100000_32.txt](/test/results_sampleRate0.5_100000_32.txt) were generated using a row sampling rate of 0.5 and a column sampling rate of 0.5 for an overall sampling rate of 0.25. The result files are named according to the sequence length and k used. Changing the number of threads has no effect on the output generated. All example output was generated using Windows 11.  
