@@ -267,7 +267,7 @@ void outputSketch(uint64_t *dists , int len , double rate , char* outFile)
   out << "Hamming Distance : Number of Pairs" << endl;
   for(int i=1; i<=len; i++)
   {
-      out << i << " : " << dists[i] << " | " << ((double)dists[i]/(2.0 * rate)) << endl;
+      out << i << " : " << ((double)dists[i]/(2.0 * rate)) << endl;
   }
 
   out.close();
