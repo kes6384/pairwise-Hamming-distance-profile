@@ -460,7 +460,7 @@ int main(int argc, char* argv[]) {
                 cout << "ARGUMENT ERROR" << endl;
                 return 1;
             }
-            seqLen = atoi(argv[++i]);
+            seqLen = strtoul(argv[++i] , nullptr , 10);
         }
         else if(arg == "-k") //k-mer length
         {
