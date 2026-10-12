@@ -63,10 +63,10 @@ const unsigned char seq_nt4_table[256] = { // translate ACGT/U to 0123
   return getSequence(file, len, seq);
 }*/
 
-uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int startIndex)
+uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int* startIndex , unsigned int seqLen)
 {
     uint128 kmer;
-    for (unsigned int i=startIndex; i<(kVal-1)+startIndex; i++)
+    for (unsigned int i=*startIndex; i<(kVal-1)+*startIndex; i++)
     {
         char c = seq[i];
         // if k-mer includes an invalid character, drop it and get next k-mer
@@ -76,7 +76,7 @@ uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int startIndex
             kmer.fullKmer[1] = 0;
             kmer.fullKmer[2] = 0;
             kmer.fullKmer[3] = 0;
-            startIndex += (i + 1);
+            *startIndex = i + 1;
             continue;
         }
         for(int j=0; j < maxNum; j++)
@@ -84,6 +84,11 @@ uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int startIndex
             kmer.fullKmer[j] = ((kmer.fullKmer[j] << 2) | (kmer.fullKmer[j+1] >> 62)) & (*mask).fullKmer[maxNum-j];
         }
         kmer.fullKmer[maxNum] = ((kmer.fullKmer[maxNum] << 2) | (uint64_t)c) & (*mask).fullKmer[0];
+        // Make sure there is enough of the sequence left to get another k-mer
+        if(*startIndex > (seqLen - kVal))
+        {
+            break;
+        }
     }
     return kmer;
 }
@@ -101,7 +106,9 @@ unsigned int storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* 
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
-    uint128 kmer1 = startKmer(kVal , seq , &mask , 0);
+    unsigned int* startIndex = (unsigned int*)calloc(1 , sizeof(unsigned int));
+    *startIndex = 0;
+    uint128 kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
     unsigned int count = 0;
     for (unsigned int i=kVal-1; i<seqLen; i++)
     {
@@ -109,8 +116,13 @@ unsigned int storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* 
         // if k-mer includes an invalid character, drop it and get next k-mer
         if(c == 4)
         {
-            kmer1 = startKmer(kVal , seq , &mask , i+1);
-            i += kVal;
+            *startIndex = i+1;
+            kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
+            i = *startIndex + kVal - 1;
+            if(*startIndex > (seqLen - kVal))
+            {
+                return 0;
+            }
             continue;
         }
         for(int j=0; j < maxNum; j++)
@@ -145,7 +157,9 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
     {
         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
     }
-    uint128 kmer1 = startKmer(kVal , seq , &mask , 0);
+    unsigned int* startIndex = (unsigned int*)calloc(1 , sizeof(unsigned int));
+    *startIndex = 0;
+    uint128 kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
     *countRow = 0;
     *countCol = 0;
     uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
@@ -155,8 +169,13 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
         // if k-mer includes an invalid character, drop it and get next k-mer
         if(c == 4)
         {
-            kmer1 = startKmer(kVal , seq , &mask , i+1);
-            i += kVal;
+            *startIndex = i+1;
+            kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
+            i = *startIndex + kVal - 1;
+            if(*startIndex > (seqLen - kVal))
+            {
+                return;
+            }
             continue;
         }
         for(int j=0; j < maxNum; j++)
