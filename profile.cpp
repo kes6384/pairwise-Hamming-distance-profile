@@ -110,7 +110,7 @@ unsigned int storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* 
     *startIndex = 0;
     uint128 kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
     unsigned int count = 0;
-    for (unsigned int i=kVal-1; i<seqLen; i++)
+    for (unsigned int i=*startIndex + kVal-1; i<seqLen; i++)
     {
         char c = seq[i];
         // if k-mer includes an invalid character, drop it and get next k-mer
@@ -118,10 +118,10 @@ unsigned int storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* 
         {
             *startIndex = i+1;
             kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
-            i = *startIndex + kVal - 1;
+            i = *startIndex + kVal - 2;
             if(*startIndex > (seqLen - kVal))
             {
-                return 0;
+                return count;
             }
             continue;
         }
@@ -151,6 +151,11 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
     // arbitrary seeds for hashing
     uint32_t seed1 = 42;
     uint32_t seed2 = 24;
+
+    // random seeds for hashing
+    //std::random_device rd;
+    //uint32_t seed1 = rd();
+    //uint32_t seed2 = rd();
     
     uint128 mask;
     for(int i=0; i < maxNum+1; i++)
@@ -163,7 +168,7 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
     *countRow = 0;
     *countCol = 0;
     uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
-    for (unsigned int i=kVal-1; i<seqLen; i++)
+    for (unsigned int i=*startIndex + kVal-1; i<seqLen; i++)
     {
         char c = seq[i];
         // if k-mer includes an invalid character, drop it and get next k-mer
@@ -171,7 +176,7 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
         {
             *startIndex = i+1;
             kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
-            i = *startIndex + kVal - 1;
+            i = *startIndex + kVal - 2;
             if(*startIndex > (seqLen - kVal))
             {
                 return;
