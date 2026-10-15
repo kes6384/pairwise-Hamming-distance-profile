@@ -41,7 +41,7 @@ The arguments can be specified in any order using the options outlined below. Th
 `-t` : run multithreaded version of the tool. Otherwise, the tool will run with one thread  
   
 ### EXAMPLES  
-The FASTA file used for the following examples and the results of running the following commands can be found in the [test folder](/test/). 
+The FASTA file used for the following examples and the results of running the following commands can be found in the [test folder](/test/). The input file used for these examples ([test/test.fna](/test/test.fna)) contains the first 100,067 base pairs of the *E. coli* genome.  
 
 Any of the following four commands will use one thread to calculate the full Hamming distance profile of 32-mers for the first 10,000 characters of the sequence from the file test.fna in the folder test and store the results in results.txt:
 ```
