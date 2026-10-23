@@ -16,6 +16,7 @@
 #include <omp.h>
 #include <vector>
 #include <climits>
+#include <iomanip>
 #include "MurmurHash3.cpp" // https://github.com/aappleby/smhasher/tree/master
 #include "parseFASTA.cpp" // Simple FASTA parser
 
@@ -156,6 +157,7 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
     //std::random_device rd;
     //uint32_t seed1 = rd();
     //uint32_t seed2 = rd();
+    //cout << seed1 << " and " << seed2 << endl;
     
     uint128 mask;
     for(int i=0; i < maxNum+1; i++)
@@ -289,9 +291,10 @@ void outputSketch(uint64_t *dists , int len , double rate , char* outFile)
 {
   ofstream out(outFile);
   out << "Hamming Distance : Number of Pairs" << endl;
+  out << std::setprecision(std::numeric_limits<double>::max_digits10);
   for(int i=1; i<=len; i++)
   {
-      out << i << " : " << ((double)dists[i]/(2.0 * rate)) << endl;
+      out << i << " : " << round(((double)dists[i]/(2.0 * rate))) << endl;
   }
 
   out.close();
@@ -536,7 +539,7 @@ int main(int argc, char* argv[]) {
     char *charSeq = (char *)malloc(seqLen + 1);
     unsigned int retrievedLen = getSequence(inptFile, seqLen, charSeq);
     //unsigned int retrievedLen = getSeq(charSeq , inptFile , seqLen);
-    if(retrievedLen <= 0)
+    if(retrievedLen < kVal)
     {
         cout << "INPUT FILE ERROR" << endl;
         return 1;
