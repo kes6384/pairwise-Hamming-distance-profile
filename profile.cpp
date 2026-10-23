@@ -447,6 +447,20 @@ void sketch_multithread(int kVal , unsigned int seqLen , char* seq , double thet
     }
 }
 
+void printHelp()
+{
+    ifstream instructions("helpInstructs.txt");
+    if(!instructions)
+        return;
+
+    string nextLine;
+    while (getline(instructions , nextLine))
+    {
+        cout << nextLine << endl;
+    }
+    instructions.close();
+}
+
 int main(int argc, char* argv[]) {
     char* inptFile;
     char* outptFile;
@@ -461,6 +475,12 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; i++)
     {
         string arg = argv[i];
+
+        if(arg == "-h")
+        {
+            printHelp();
+            return 0;
+        }
 
         if(arg == "-i") //input file
         {
