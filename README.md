@@ -33,15 +33,15 @@ The arguments can be specified in any order using the options outlined below. Th
 
 `-i` : FASTA file containing the sequence to analyze; k-mers containing characters besides A,C,T,U, and G will be ignored   
 `-o` : text file where results will be written to  
-`-l` : length (in base pairs) of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). If not specified, the entire sequence in INPUT FILE will be read. Must be $\lt$ 4,294,967,295  
-`-k` : length of k-mers, must be $1 \leq k \leq 128$  
+`-l` : length (in base pairs) of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). If not specified, the entire sequence in INPUT FILE will be read. Must be and integer such that $\lt$ 4,294,967,295  
+`-k` : length of k-mers, must be an integer such that $1 \leq k \leq 128$  
 `-s` : generate a sketch instead of the full profile. Requires both row and column sampling rates; overall sampling rate = ROW SAMPLE RATE * COLUMN SAMPLE RATE   
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ROW SAMPLE RATE - rate at which to sample first k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair, must be $\gt 0$ and $\leq 1.0$  
-`-t` : run multithreaded version of the tool. Otherwise, the tool will run with one thread  
+`-t` : run multithreaded version of the tool with specified number of threads. Otherwise, the tool will run with one thread  
   
 ### EXAMPLES  
-The FASTA file used for the following examples and the results of running the following commands can be found in the [test folder](/test/). The input file used for these examples ([test/test.fna](/test/test.fna)) contains the first 100,023 base pairs of the [*E. coli* genome, ASM30325v2](https://www.ncbi.nlm.nih.gov/datasets/genome/GCA_000303255.2/).  
+The FASTA file used for the following examples and the results of running the following commands can be found in the [test folder](/test/). The input file used for these examples ([test/test.fna](/test/test.fna)) contains the first 100,023 base pairs of the [*E. coli*  0.1288 strain's genome, ASM30325v2](https://www.ncbi.nlm.nih.gov/datasets/genome/GCA_000303255.2/).  
 
 Any of the following four commands will use one thread to calculate the full Hamming distance profile of 32-mers for the first 10,000 characters of the sequence from the file test.fna in the folder test and store the results in results.txt:
 ```
@@ -80,7 +80,7 @@ The following command will use 4 threads to sample 32-mer pairs at an overall ra
   
 ## OUTPUT  
   
-The results of running the tool indicate the number of k-mer pairs in the given sequence that had a Hamming distance of 0, 1, ..., k. The results will be formatted in 2 columns, in the following manner:  
+The results of running the tool indicate the number of k-mer pairs in the given input sequence with a Hamming distance of 0, 1, ..., k. The results will be formatted in 2 columns, in the following manner:  
   
 Hamming Distance : Number of Pairs
   
