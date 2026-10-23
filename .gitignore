@@ -6,22 +6,38 @@
 *.exe
 *.o
 *.so
+profile
+profileTest
 
 # Output files #
 ###################
 *.txt
+rep*
 
 # Old source files #
 ###################
 cppHD*
 hashingSketch*
-HDSketch.cppHD
+HDSketch.cpp
 matrix*
+profileSmallerk.cpp
+profileOld.cpp
+profileLessOld.cpp
+profileSept10.cpp
+profileTestMods.cpp
 
 # Other #
 ###################
 script.py
+runtimeAvgs.py
+generatePlots.py
+copyGenPlots.py
 tinyFA.hpp
 pliib.hpp
 eigen-5.0.0
-errorFigures
+shortTest.fna
+test2.fna
+errorFiguresOld
+GCF*
+Escherichia*
+seqan3
