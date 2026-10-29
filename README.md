@@ -4,7 +4,7 @@ This tool includes several methods to compute the pairwise Hamming distance prof
   
 The tool can be used to compute the full Hamming distance profile of a sequence, or to compute a sketch of the profile for faster (but less accurate) results. Support for multithreading is also provided.  
   
-All of the provided methods are contained within profile.cpp and parseFASTA.cpp. Required open source libraries are provided in the repo. MurmurHash was created by Austin Appleby. The MurmurHash repo can be found here: https://github.com/aappleby/smhasher/tree/master  
+All of the provided methods are contained within profile.cpp and parseFASTA.cpp. Required open source libraries are provided in the repo. MurmurHash3 was created by Austin Appleby. The MurmurHash repo can be found here: https://github.com/aappleby/smhasher/tree/master  
 
 ## REQUIREMENTS  
   
