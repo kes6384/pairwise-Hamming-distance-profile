@@ -55,15 +55,6 @@ const unsigned char seq_nt4_table[256] = { // translate ACGT/U to 0123
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
-// parse FASTA file using parseFASTA.cpp
-// seq - extracted sequence will be stored here
-// len - length of sequence to extract
-// Returns the actual length of the sequence exracted
-/*unsigned int getSeq(char* seq, char* file, unsigned int len)
-{
-  return getSequence(file, len, seq);
-}*/
-
 uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int* startIndex , unsigned int seqLen)
 {
     uint128 kmer;
@@ -78,6 +69,11 @@ uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int* startInde
             kmer.fullKmer[2] = 0;
             kmer.fullKmer[3] = 0;
             *startIndex = i + 1;
+            // Make sure there is enough of the sequence left to get another k-mer
+            if(*startIndex > (seqLen - kVal))
+            {
+                break;
+            }
             continue;
         }
         for(int j=0; j < maxNum; j++)
@@ -85,11 +81,6 @@ uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int* startInde
             kmer.fullKmer[j] = ((kmer.fullKmer[j] << 2) | (kmer.fullKmer[j+1] >> 62)) & (*mask).fullKmer[maxNum-j];
         }
         kmer.fullKmer[maxNum] = ((kmer.fullKmer[maxNum] << 2) | (uint64_t)c) & (*mask).fullKmer[0];
-        // Make sure there is enough of the sequence left to get another k-mer
-        if(*startIndex > (seqLen - kVal))
-        {
-            break;
-        }
     }
     return kmer;
 }
@@ -119,11 +110,12 @@ unsigned int storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* 
         {
             *startIndex = i+1;
             kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
-            i = *startIndex + kVal - 2;
             if(*startIndex > (seqLen - kVal))
             {
+                free(startIndex);
                 return count;
             }
+            i = *startIndex + kVal - 2;
             continue;
         }
         for(int j=0; j < maxNum; j++)
@@ -134,6 +126,7 @@ unsigned int storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* 
         kmers[count] = kmer1;
         count ++;
     }
+    free(startIndex);
     return count;
 }
 
@@ -178,11 +171,13 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
         {
             *startIndex = i+1;
             kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
-            i = *startIndex + kVal - 2;
             if(*startIndex > (seqLen - kVal))
             {
+                free(startIndex);
+                free(hashed);
                 return;
             }
+            i = *startIndex + kVal - 2;
             continue;
         }
         for(int j=0; j < maxNum; j++)
@@ -221,12 +216,13 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
             (*countCol) ++;
         }
     }
+    free(startIndex);
     free(hashed);
 }
 
 // Returns HD of kmer1 and kmer2
 // Uses bit manipulation and popcount
-int hdPC(uint128 kmer1, uint128 kmer2 , int k)
+int hdPC(uint128 kmer1, uint128 kmer2)
 {
   int dist = 0;
 
@@ -318,7 +314,7 @@ void regularVer(int kVal, unsigned int seqLen , char* seq , uint64_t* dists)
     {
         for(unsigned int j=i+1; j<numKmers; j++)
         {
-            dists[HD_FUNC(kmers[i]  , kmers[j] , kVal)] ++;
+            dists[HD_FUNC(kmers[i]  , kmers[j])] ++;
         }
     }
     free(kmers);
@@ -352,7 +348,7 @@ void sketch(int kVal , unsigned int seqLen , char* seq , double theta1 , double 
         for(unsigned int j=0; j<countCol; j++)
         {
             uint128 kmer2 = kmersCol[j];
-            dists[HD_FUNC(kmer1 , kmer2 , kVal)] ++;
+            dists[HD_FUNC(kmer1 , kmer2)] ++;
         }
     }
 }
@@ -382,7 +378,7 @@ void multithread(int kVal , unsigned int seqLen , char* seq , int numThreads , u
         for (unsigned int i = 0; i < numKmers; i++) {
             const uint128 ki = kmers[i];
             for (unsigned int j = i + 1; j < numKmers; j++) {
-                int hd = hdPC(ki, kmers[j], kVal);
+                int hd = hdPC(ki, kmers[j]);
                 hist[hd]++;
             }
         }
@@ -432,7 +428,7 @@ void sketch_multithread(int kVal , unsigned int seqLen , char* seq , double thet
         for (unsigned int i = 0; i < countRow; i++) {
             const uint128 ki = kmersRow[i];
             for (unsigned int j = 0; j < countCol; j++) {
-                int hd = hdPC(ki, kmersCol[j], kVal);
+                int hd = hdPC(ki, kmersCol[j]);
                 hist[hd]++;
             }
         }
