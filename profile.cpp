@@ -525,13 +525,19 @@ int main(int argc, char* argv[]) {
         }
         else if(arg == "-s") //sketch
         {
-            if(argc <= (i + 2))
+            if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
                 return 1;
             }
+            // If one paramter given, assume both theta are equal
             theta1 = atof(argv[++i]);
-            theta2 = atof(argv[++i]);
+            theta2 = theta1;
+            // Both thetas are specified
+            if((argc >= (i + 2)) && (argv[i+1][0] != '-'))
+            {
+                theta2 = atof(argv[++i]);
+            }
         }
         else
         {
