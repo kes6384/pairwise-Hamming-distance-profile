@@ -472,7 +472,7 @@ int main(int argc, char* argv[]) {
     {
         string arg = argv[i];
 
-        if(arg == "-h")
+        if(arg == "-h" || arg == "--help")
         {
             printHelp();
             return 0;
@@ -483,6 +483,7 @@ int main(int argc, char* argv[]) {
             if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
+                printHelp();
                 return 1;
             }
             inptFile = argv[++i];
@@ -492,6 +493,7 @@ int main(int argc, char* argv[]) {
             if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
+                printHelp();
                 return 1;
             }
             outptFile = argv[++i];
@@ -501,6 +503,7 @@ int main(int argc, char* argv[]) {
             if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
+                printHelp();
                 return 1;
             }
             seqLen = strtoul(argv[++i] , nullptr , 10);
@@ -510,6 +513,7 @@ int main(int argc, char* argv[]) {
             if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
+                printHelp();
                 return 1;
             }
             kVal = atoi(argv[++i]);
@@ -519,6 +523,7 @@ int main(int argc, char* argv[]) {
             if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
+                printHelp();
                 return 1;
             }
             numThreads = atoi(argv[++i]);
@@ -528,6 +533,7 @@ int main(int argc, char* argv[]) {
             if(argc <= (i + 1))
             {
                 cout << "ARGUMENT ERROR" << endl;
+                printHelp();
                 return 1;
             }
             // If one paramter given, assume both theta are equal
@@ -542,6 +548,7 @@ int main(int argc, char* argv[]) {
         else
         {
             cout << "ARGUMENT ERROR" << endl;
+            printHelp();
             return 1;
         }
     }
@@ -549,6 +556,7 @@ int main(int argc, char* argv[]) {
     if(kVal > 128 || kVal < 1 || seqLen < kVal || numThreads < 1 || theta1 <= 0 || theta2 <= 0 || theta1 > 1 || theta2 > 1 || inptFile == NULL || outptFile == NULL || inptFile == "" || outptFile == "")
     {
         cout << "ARGUMENT ERROR" << endl;
+        printHelp();
         return 1;
     }
 

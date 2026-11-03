@@ -1,14 +1,27 @@
-The tool can be run via the command line using the general format below:
+Pairwise Hamming Distance Profile Tool
+======================================
+Compute the pairwise Hamming distance profile of a given sequence. Designed for use with FASTA files and sequences of length less than 4,294,967,295 and k of at most 128. k-mers containing characters besides A,C,T,U, and G will be ignored. Results are output to a user-specified text file. Can be used to compute the full Hamming distance profile of a sequence, or to compute a sketch of the profile for faster (but less accurate) results.  
 
-./profile -i [INPUT FILE] -o [OUTPUT FILE].txt -l [SEQUENCE LENGTH] -k [k] -s [ROW SAMPLE RATE] [COLUMN SAMPLE RATE] -t [NUMBER OF THREADS]
+Usage: ./profile [OPTIONS]
 
-The arguments can be specified in any order using the options outlined below. The sampling rate, number of threads, and sequence length arguments are optional. All other arguments are required. If sequence length is not specified, the entire sequence in the input file will be read. Omit the sampling rate arguments to generate the full profile. To generate a sketch instead of the full profile, you must include both a row and column sampling rate.
+Required arguments:
 
-`-i` : FASTA file containing the sequence to analyze; k-mers containing characters besides A,C,T,U, and G will be ignored
-`-o` : text file where results will be written to
-`-l` : length (in base pairs) of the input sequence to analyze (can be smaller than the length of the entire sequence in INPUT FILE). If not specified, the entire sequence in INPUT FILE will be read. Must be < 4,294,967,295
-`-k` : length of k-mers, must be and integer such that 1 <= k <= 128
-`-s` : generate a sketch instead of the full profile. Requires both row and column sampling rates; overall sampling rate = ROW SAMPLE RATE * COLUMN SAMPLE RATE
-        ROW SAMPLE RATE - rate at which to sample first k-mer in each pair, must be > 0 and <= 1.0
-        COLUMN SAMPLE RATE - rate at which to sample second k-mer in each pair, must be > 0 and <= 1.0
-`-t` : run multithreaded version of the tool with specified number of threads. Otherwise, the tool will run with one thread
+-i <input-file>         FASTA file containing sequence to analyze
+-o <output-file>        Text file for output
+-k <kmer-size>          K-mer size, must be between 1 and 128 (inclusive)
+
+Optional arguments:
+
+-l <length>             Sequence length (in base pairs), must be less than 4,294,967,295 (default: length of input file)
+-s <theta>              Generate a sketch using FracMinHash with given rate (default: 1.0, no sketching)
+-t <thread-number>      Number of threads (default: 1)
+
+Examples:
+Full profile of entire file:
+./profile -i /test/test.fna -o results.txt -k 32
+Sketching (theta = 0.5):
+./profile -i /test/test.fna -o results.txt -k 32 -s 0.5
+Using a specific sequence length:
+./profile -i /test/test.fna -o results.txt -k 32 -l 10000
+
+See the repo wiki and README for more help
