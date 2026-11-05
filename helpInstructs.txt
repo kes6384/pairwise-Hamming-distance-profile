@@ -13,7 +13,7 @@ Required arguments:
 Optional arguments:
 
 -l <length>             Sequence length (in base pairs), must be less than 4,294,967,295 (default: length of input file)
--s <theta>              Generate a sketch using FracMinHash with given rate (default: 1.0, no sketching)
+-s <theta>              Generate a sketch using FracMinHash with given theta (default: 1.0, no sketching)
 -t <thread-number>      Number of threads (default: 1)
 
 Examples:
