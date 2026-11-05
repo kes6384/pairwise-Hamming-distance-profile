@@ -38,7 +38,7 @@ Required arguments:
 Optional arguments:  
 
 `-l <length>` &emsp;&emsp;&emsp;&emsp;&emsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Sequence length (in base pairs), must be less than 4,294,967,295 (default: length of input file)  
-`-s <theta_1> [<theta_2>]` &emsp;&emsp;&emsp; Generate a sketch using FracMinHash with given rate(s) (default: 1.0, no sketching)  
+`-s <theta-1> [<theta-2>]` &emsp;&emsp;&emsp; Generate a sketch using FracMinHash with given theta(s) (default: 1.0 1.0, no sketching) (if no theta-2 specified, theta-1 = theta-2)  
 `-t <thread-number>` &emsp;&emsp;&emsp;&emsp;&nbsp;&nbsp;&nbsp; Number of threads (default: 1)  
   
 ### EXAMPLES  
