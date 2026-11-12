@@ -138,91 +138,242 @@ unsigned int storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* 
 // seq - sequence to analyze
 // numThreads - number of threads to use
 // returns the number of k-mers actually found (may be less than expected due to invalid characters)
-unsigned int storeKmersMT(uint128 *kmers , int kVal , unsigned int seqLen , char* seq , int numThreads)
+// unsigned int storeKmersMT(uint128 *kmers , int kVal , unsigned int seqLen , char* seq , int numThreads)
+// {
+//     auto start(std::chrono::high_resolution_clock::now());
+//     //cout << "in here!" << endl;
+//     // split sequence into chunks based on number of threads
+//     unsigned int chunkLen = ((seqLen - 1)/numThreads) + (kVal - 1) + 1;
+//     //cout << chunkLen << endl;
+
+//     uint128 mask;
+//     for(int i=0; i < maxNum+1; i++)
+//     {
+//         mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+//     }
+
+//     // Pointers to start positions
+//     //unsigned int** startIndices = (unsigned int**)calloc(numThreads , sizeof(unsigned int*));
+//     std::vector<unsigned int*> startIndices(numThreads , 0);
+//     // Pointers to end positions
+//     //unsigned int** endIndices = (unsigned int**)calloc(numThreads , sizeof(unsigned int*));
+//     std::vector<unsigned int> endIndices(numThreads , 0);
+//     for(int i=0; i<numThreads; i++)
+//     {
+//         startIndices[i] = (unsigned int*)malloc(sizeof(unsigned int));
+//         *startIndices[i] = i * (chunkLen - kVal + 1);
+//         endIndices[i] = min(*startIndices[i] + chunkLen , seqLen);
+//     }
+//     //cout << "!!" << endl;
+//     uint128 empty;
+//     std::vector<vector<uint128>> local_kmers(numThreads , vector<uint128>(((chunkLen - kVal) + 1) , empty));
+//     std::vector<unsigned int> counts(numThreads , 0);
+//     //cout << "!" << endl;
+//     #pragma omp parallel
+//     {
+//         int tid = omp_get_thread_num();
+//         //cout << tid << endl;
+//         auto& myKmers = local_kmers[tid];
+//         unsigned int myEnd = endIndices[tid];
+//         unsigned int* myStart = startIndices[tid];
+//         // find and store k-mers within assigned region of sequence
+//         counts[tid] = 0;
+//         uint128 kmer1 = startKmer(kVal , seq , &mask , myStart , myEnd);
+//         //#pragma omp for schedule(dynamic , 1)
+//         for (unsigned int i=*myStart + kVal-1; i<myEnd; i++)
+//         {
+//             char c = seq[i];
+//             // if k-mer includes an invalid character, drop it and get next k-mer
+//             if(c == 4)
+//             {
+//                 *myStart = i+1;
+//                 kmer1 = startKmer(kVal , seq , &mask , myStart , myEnd);
+//                 // This might cause issues
+//                 if(*myStart > (myEnd - kVal))
+//                 {
+//                     break;
+//                 }
+//                 i = *myStart + kVal - 2;
+//                 continue;
+//             }
+//             for(int j=0; j < maxNum; j++)
+//             {
+//                 kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
+//             }
+//             kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
+//             myKmers[counts[tid]] = kmer1;
+//             counts[tid] ++;
+//         }
+//     }
+//     unsigned int totalCount = 0;
+//     for(int t=0; t<numThreads; t++)
+//     {
+//         unsigned int count = counts[t];
+//         //cout << count << endl;
+//         for(int i=0; i<count; i++)
+//         {
+//             kmers[totalCount] = local_kmers[t][i];
+//             totalCount ++;
+//             //cout << kmers[i].fullKmer[0] << endl;
+//         } 
+//         free(startIndices[t]);
+//     }
+//     //cout << totalCount << endl;
+//     auto end(std::chrono::high_resolution_clock::now());
+//     auto duration(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start));
+//     std::cout << "Duration: " << duration.count() << " ns\n";
+//     return totalCount;
+// }
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+#include <omp.h>
+
+unsigned int storeKmersMT(
+    uint128* kmers,
+    int kVal,
+    unsigned int seqLen,
+    char* seq,
+    int numThreads)
 {
-    auto start(std::chrono::high_resolution_clock::now());
-    //cout << "in here!" << endl;
-    // split sequence into chunks based on number of threads
-    unsigned int chunkLen = ((seqLen - 1)/numThreads) + (kVal - 1) + 1;
-    //cout << chunkLen << endl;
-
-    uint128 mask;
-    for(int i=0; i < maxNum+1; i++)
+    if (kVal < 1 || kVal > 128 ||
+        seqLen < static_cast<unsigned int>(kVal))
     {
-        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+        return 0;
     }
 
-    // Pointers to start positions
-    //unsigned int** startIndices = (unsigned int**)calloc(numThreads , sizeof(unsigned int*));
-    std::vector<unsigned int*> startIndices(numThreads , 0);
-    // Pointers to end positions
-    //unsigned int** endIndices = (unsigned int**)calloc(numThreads , sizeof(unsigned int*));
-    std::vector<unsigned int> endIndices(numThreads , 0);
-    for(int i=0; i<numThreads; i++)
+    const size_t k = static_cast<size_t>(kVal);
+
+    // Partition possible k-mer starting positions, not sequence characters.
+    const size_t numStarts = static_cast<size_t>(seqLen) - k + 1;
+
+    const int numChunks = static_cast<int>(
+        std::min(
+            numStarts,
+            static_cast<size_t>(std::max(1, numThreads))
+        )
+    );
+
+    std::vector<size_t> counts(numChunks, 0);
+    std::vector<size_t> offsets(numChunks + 1, 0);
+
+    // Pass 1: count valid k-mers independently in each chunk.
+    #pragma omp parallel for num_threads(numChunks) schedule(static)
+    for (int t = 0; t < numChunks; ++t)
     {
-        startIndices[i] = (unsigned int*)malloc(sizeof(unsigned int));
-        *startIndices[i] = i * (chunkLen - kVal + 1);
-        endIndices[i] = min(*startIndices[i] + chunkLen , seqLen);
-    }
-    //cout << "!!" << endl;
-    uint128 empty;
-    std::vector<vector<uint128>> local_kmers(numThreads , vector<uint128>(((chunkLen - kVal) + 1) , empty));
-    std::vector<unsigned int> counts(numThreads , 0);
-    //cout << "!" << endl;
-    #pragma omp parallel
-    {
-        int tid = omp_get_thread_num();
-        //cout << tid << endl;
-        auto& myKmers = local_kmers[tid];
-        unsigned int myEnd = endIndices[tid];
-        unsigned int* myStart = startIndices[tid];
-        // find and store k-mers within assigned region of sequence
-        counts[tid] = 0;
-        uint128 kmer1 = startKmer(kVal , seq , &mask , myStart , myEnd);
-        //#pragma omp for schedule(dynamic , 1)
-        for (unsigned int i=*myStart + kVal-1; i<myEnd; i++)
+        // This chunk owns k-mer starts in [begin, end).
+        const size_t begin =
+            numStarts * static_cast<size_t>(t) / numChunks;
+
+        const size_t end =
+            numStarts * static_cast<size_t>(t + 1) / numChunks;
+
+        // Read k - 1 additional characters to complete the last k-mer.
+        const size_t scanEnd = end + k - 1;
+
+        size_t validRun = 0;
+        size_t count = 0;
+
+        for (size_t i = begin; i < scanEnd; ++i)
         {
-            char c = seq[i];
-            // if k-mer includes an invalid character, drop it and get next k-mer
-            if(c == 4)
+            const unsigned char c =
+                static_cast<unsigned char>(seq[i]);
+
+            if (c >= 4)
             {
-                *myStart = i+1;
-                kmer1 = startKmer(kVal , seq , &mask , myStart , myEnd);
-                // This might cause issues
-                if(*myStart > (myEnd - kVal))
-                {
-                    break;
-                }
-                i = *myStart + kVal - 2;
+                validRun = 0;
+            }
+            else
+            {
+                ++validRun;
+
+                if (validRun >= k)
+                    ++count;
+            }
+        }
+
+        // Write the shared count only once per chunk.
+        counts[t] = count;
+    }
+
+    // Assign non-overlapping output ranges.
+    // This loop performs only numChunks additions.
+    for (int t = 0; t < numChunks; ++t)
+    {
+        offsets[t + 1] = offsets[t] + counts[t];
+    }
+
+    // Build the same mask layout used by storeKmers.
+    const int lastWord = (kVal - 1) / 32;
+    uint128 mask{};
+
+    for (int j = 0; j <= lastWord; ++j)
+    {
+        const int bases = kVal - 32 * j;
+
+        mask.fullKmer[j] = (bases >= 32)
+            ? ~0ULL
+            : ((1ULL << (2 * bases)) - 1);
+    }
+
+    // Pass 2: generate k-mers directly into their final output ranges.
+    #pragma omp parallel for num_threads(numChunks) schedule(static)
+    for (int t = 0; t < numChunks; ++t)
+    {
+        const size_t begin =
+            numStarts * static_cast<size_t>(t) / numChunks;
+
+        const size_t end =
+            numStarts * static_cast<size_t>(t + 1) / numChunks;
+
+        const size_t scanEnd = end + k - 1;
+
+        uint128 kmer{};
+        size_t validRun = 0;
+
+        // Each chunk has its own local output cursor.
+        size_t out = offsets[t];
+
+        for (size_t i = begin; i < scanEnd; ++i)
+        {
+            const unsigned char c =
+                static_cast<unsigned char>(seq[i]);
+
+            if (c >= 4)
+            {
+                // Discard any partial k-mer containing an invalid base.
+                kmer = uint128{};
+                validRun = 0;
                 continue;
             }
-            for(int j=0; j < maxNum; j++)
+
+            // Shift the encoded k-mer and propagate bits between words.
+            for (int j = 0; j < lastWord; ++j)
             {
-                kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
+                kmer.fullKmer[j] =
+                    ((kmer.fullKmer[j] << 2) |
+                     (kmer.fullKmer[j + 1] >> 62))
+                    & mask.fullKmer[lastWord - j];
             }
-            kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-            myKmers[counts[tid]] = kmer1;
-            counts[tid] ++;
+
+            // Append the new base to the last active word.
+            kmer.fullKmer[lastWord] =
+                ((kmer.fullKmer[lastWord] << 2) |
+                 static_cast<uint64_t>(c))
+                & mask.fullKmer[0];
+
+            ++validRun;
+
+            if (validRun >= k)
+            {
+                kmers[out++] = kmer;
+            }
         }
     }
-    unsigned int totalCount = 0;
-    for(int t=0; t<numThreads; t++)
-    {
-        unsigned int count = counts[t];
-        //cout << count << endl;
-        for(int i=0; i<count; i++)
-        {
-            kmers[totalCount] = local_kmers[t][i];
-            totalCount ++;
-            //cout << kmers[i].fullKmer[0] << endl;
-        } 
-        free(startIndices[t]);
-    }
-    //cout << totalCount << endl;
-    auto end(std::chrono::high_resolution_clock::now());
-    auto duration(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start));
-    std::cout << "Duration: " << duration.count() << " ns\n";
-    return totalCount;
+
+    return static_cast<unsigned int>(offsets[numChunks]);
 }
 
 // Separates out and stores a sketch of k-mers in sequence
