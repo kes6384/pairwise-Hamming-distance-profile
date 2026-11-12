@@ -1,0 +1,881 @@
+//Algorithm for finding the Hammond Distance profile of a given sequence
+//Uses popcount method
+//Includes sketching and multithreaded options
+//Takes FASTA files as input and supports k<=128
+//Outputs a text file representing the histogram of Hammond Distances between k-mers
+//Sketch versions make use of MurmurHash3 by Austin Appleby https://github.com/aappleby/smhasher/tree/master
+
+#include <iostream>
+#include <fstream>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <bit>
+#include <bitset>
+#include <random>
+#include <omp.h>
+#include <vector>
+#include <climits>
+#include <iomanip>
+#include <chrono>
+#include "MurmurHash3.cpp" // https://github.com/aappleby/smhasher/tree/master
+#include "parseFASTA.cpp" // Simple FASTA parser
+
+#define HD_FUNC hdPC
+
+using namespace std;
+
+// Struct for storing k-mers with k <= 128
+struct uint128 {
+    // Each k-mer is 2-bit encoded, so need 256 bits for 128 characters
+    uint64_t fullKmer[4] = {0,0,0,0};
+};
+// How many elements of fullKmer are actually needed
+int maxNum;
+
+// Masks used for popcount method
+uint64_t popMask;
+uint64_t popMask2;
+
+const unsigned char seq_nt4_table[256] = { // translate ACGT/U to 0123
+	0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  3, 3, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  3, 3, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
+};
+
+uint128 startKmer(int kVal , char* seq , uint128 *mask , unsigned int* startIndex , unsigned int seqLen)
+{
+    uint128 kmer;
+    for (unsigned int i=*startIndex; i<(kVal-1)+*startIndex; i++)
+    {
+        char c = seq[i];
+        // if k-mer includes an invalid character, drop it and get next k-mer
+        if(c == 4)
+        {
+            kmer.fullKmer[0] = 0;
+            kmer.fullKmer[1] = 0;
+            kmer.fullKmer[2] = 0;
+            kmer.fullKmer[3] = 0;
+            *startIndex = i + 1;
+            // Make sure there is enough of the sequence left to get another k-mer
+            if(*startIndex > (seqLen - kVal))
+            {
+                break;
+            }
+            continue;
+        }
+        for(int j=0; j < maxNum; j++)
+        {
+            kmer.fullKmer[j] = ((kmer.fullKmer[j] << 2) | (kmer.fullKmer[j+1] >> 62)) & (*mask).fullKmer[maxNum-j];
+        }
+        kmer.fullKmer[maxNum] = ((kmer.fullKmer[maxNum] << 2) | (uint64_t)c) & (*mask).fullKmer[0];
+    }
+    return kmer;
+}
+
+// Separates out and stores k-mers found in sequence
+// kmers - array to store kmers in
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+// returns the number of k-mers actually found (may be less than expected due to invalid characters)
+unsigned int storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* seq)
+{
+    uint128 mask;
+    for(int i=0; i < maxNum+1; i++)
+    {
+        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+    }
+    unsigned int* startIndex = (unsigned int*)calloc(1 , sizeof(unsigned int));
+    *startIndex = 0;
+    uint128 kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
+    unsigned int count = 0;
+    for (unsigned int i=*startIndex + kVal-1; i<seqLen; i++)
+    {
+        char c = seq[i];
+        // if k-mer includes an invalid character, drop it and get next k-mer
+        if(c == 4)
+        {
+            *startIndex = i+1;
+            kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
+            if(*startIndex > (seqLen - kVal))
+            {
+                free(startIndex);
+                return count;
+            }
+            i = *startIndex + kVal - 2;
+            continue;
+        }
+        for(int j=0; j < maxNum; j++)
+        {
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
+        }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        kmers[count] = kmer1;
+        count ++;
+    }
+    free(startIndex);
+    return count;
+}
+
+// Separates out and stores k-mers found in sequence
+// kmers - array to store kmers in
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+// numThreads - number of threads to use
+// returns the number of k-mers actually found (may be less than expected due to invalid characters)
+unsigned int storeKmersMT(uint128 *kmers , int kVal , unsigned int seqLen , char* seq , int numThreads)
+{
+    auto start(std::chrono::high_resolution_clock::now());
+    //cout << "in here!" << endl;
+    // split sequence into chunks based on number of threads
+    unsigned int chunkLen = ((seqLen - 1)/numThreads) + (kVal - 1) + 1;
+    //cout << chunkLen << endl;
+
+    uint128 mask;
+    for(int i=0; i < maxNum+1; i++)
+    {
+        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+    }
+
+    // Pointers to start positions
+    //unsigned int** startIndices = (unsigned int**)calloc(numThreads , sizeof(unsigned int*));
+    std::vector<unsigned int*> startIndices(numThreads , 0);
+    // Pointers to end positions
+    //unsigned int** endIndices = (unsigned int**)calloc(numThreads , sizeof(unsigned int*));
+    std::vector<unsigned int> endIndices(numThreads , 0);
+    for(int i=0; i<numThreads; i++)
+    {
+        startIndices[i] = (unsigned int*)malloc(sizeof(unsigned int));
+        *startIndices[i] = i * (chunkLen - kVal + 1);
+        endIndices[i] = min(*startIndices[i] + chunkLen , seqLen);
+    }
+    //cout << "!!" << endl;
+    uint128 empty;
+    std::vector<vector<uint128>> local_kmers(numThreads , vector<uint128>(((chunkLen - kVal) + 1) , empty));
+    std::vector<unsigned int> counts(numThreads , 0);
+    //cout << "!" << endl;
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        //cout << tid << endl;
+        auto& myKmers = local_kmers[tid];
+        unsigned int myEnd = endIndices[tid];
+        unsigned int* myStart = startIndices[tid];
+        // find and store k-mers within assigned region of sequence
+        counts[tid] = 0;
+        uint128 kmer1 = startKmer(kVal , seq , &mask , myStart , myEnd);
+        //#pragma omp for schedule(dynamic , 1)
+        for (unsigned int i=*myStart + kVal-1; i<myEnd; i++)
+        {
+            char c = seq[i];
+            // if k-mer includes an invalid character, drop it and get next k-mer
+            if(c == 4)
+            {
+                *myStart = i+1;
+                kmer1 = startKmer(kVal , seq , &mask , myStart , myEnd);
+                // This might cause issues
+                if(*myStart > (myEnd - kVal))
+                {
+                    break;
+                }
+                i = *myStart + kVal - 2;
+                continue;
+            }
+            for(int j=0; j < maxNum; j++)
+            {
+                kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
+            }
+            kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
+            myKmers[counts[tid]] = kmer1;
+            counts[tid] ++;
+        }
+    }
+    unsigned int totalCount = 0;
+    for(int t=0; t<numThreads; t++)
+    {
+        unsigned int count = counts[t];
+        //cout << count << endl;
+        for(int i=0; i<count; i++)
+        {
+            kmers[totalCount] = local_kmers[t][i];
+            totalCount ++;
+            //cout << kmers[i].fullKmer[0] << endl;
+        } 
+        free(startIndices[t]);
+    }
+    //cout << totalCount << endl;
+    auto end(std::chrono::high_resolution_clock::now());
+    auto duration(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start));
+    std::cout << "Duration: " << duration.count() << " ns\n";
+    return totalCount;
+}
+
+// Separates out and stores a sketch of k-mers in sequence
+// kmersRow - vector to store row k-mers in
+// kmersCol - vector to store column k-mers in
+// countRow - address to store number of k-mers in row
+// countCol - address to store number of k-mers in column
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+// theta1 - row sampling rate
+// theta2 - column sampling rate
+void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kmersCol , unsigned int* countRow , unsigned int* countCol , int kVal , unsigned int seqLen , char* seq , double theta1 , double theta2)
+{
+    // arbitrary seeds for hashing
+    uint32_t seed1 = 42;
+    uint32_t seed2 = 24;
+
+    // random seeds for hashing
+    //std::random_device rd;
+    //uint32_t seed1 = rd();
+    //uint32_t seed2 = rd();
+    //cout << seed1 << " and " << seed2 << endl;
+    
+    uint128 mask;
+    for(int i=0; i < maxNum+1; i++)
+    {
+        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+    }
+    unsigned int* startIndex = (unsigned int*)calloc(1 , sizeof(unsigned int));
+    *startIndex = 0;
+    uint128 kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
+    *countRow = 0;
+    *countCol = 0;
+    uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
+    for (unsigned int i=*startIndex + kVal-1; i<seqLen; i++)
+    {
+        char c = seq[i];
+        // if k-mer includes an invalid character, drop it and get next k-mer
+        if(c == 4)
+        {
+            *startIndex = i+1;
+            kmer1 = startKmer(kVal , seq , &mask , startIndex , seqLen);
+            if(*startIndex > (seqLen - kVal))
+            {
+                free(startIndex);
+                free(hashed);
+                return;
+            }
+            i = *startIndex + kVal - 2;
+            continue;
+        }
+        for(int j=0; j < maxNum; j++)
+        {
+            kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
+        }
+        kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
+        // Decide if kmer should be sampled
+        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
+        float hash = (float)(*hashed) / (float)(UINT32_MAX);
+        if(hash < theta1)
+        {
+            if(*countRow < kmersRow.size())
+            {
+                kmersRow[*countRow] = kmer1;
+            }
+            else
+            {
+                kmersRow.push_back(kmer1);
+            }
+            (*countRow) ++;
+        }
+        // Different seeds for row and column for independence
+        MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed2 , hashed);
+        hash = (float)(*hashed) / (float)(UINT32_MAX);
+        if(hash < theta2)
+        {
+            if(*countCol < kmersCol.size())
+            {
+                kmersCol[*countCol] = kmer1;
+            }
+            else
+            {
+                kmersCol.push_back(kmer1);
+            }
+            (*countCol) ++;
+        }
+    }
+    free(startIndex);
+    free(hashed);
+}
+
+// Separates out and stores a sketch of k-mers in sequence
+// kmersRow - vector to store row k-mers in
+// kmersCol - vector to store column k-mers in
+// countRow - address to store number of k-mers in row
+// countCol - address to store number of k-mers in column
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+// theta1 - row sampling rate
+// theta2 - column sampling rate
+// numThreads - number of threads
+void storeKmersSketchMT(std::vector<uint128> &kmersRow , std::vector<uint128> &kmersCol , unsigned int* countRow , unsigned int* countCol , int kVal , unsigned int seqLen , char* seq , double theta1 , double theta2 , int numThreads)
+{
+    auto start(std::chrono::high_resolution_clock::now());
+    // arbitrary seeds for hashing
+    uint32_t seed1 = 42;
+    uint32_t seed2 = 24;
+
+    // random seeds for hashing
+    //std::random_device rd;
+    //uint32_t seed1 = rd();
+    //uint32_t seed2 = rd();
+    //cout << seed1 << " and " << seed2 << endl;
+    
+    // split sequence into chunks based on number of threads
+    unsigned int chunkLen = ((seqLen - 1)/numThreads) + (kVal - 1) + 1;
+
+    uint128 mask;
+    for(int i=0; i < maxNum+1; i++)
+    {
+        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
+    }
+    // Pointers to start positions
+    std::vector<unsigned int*> startIndices(numThreads , 0);
+    // Pointers to end positions
+    std::vector<unsigned int> endIndices(numThreads , 0);
+    for(int i=0; i<numThreads; i++)
+    {
+        startIndices[i] = (unsigned int*)malloc(sizeof(unsigned int));
+        *startIndices[i] = i * (chunkLen - kVal + 1);
+        endIndices[i] = min(*startIndices[i] + chunkLen , seqLen);
+    }
+    *countRow = 0;
+    *countCol = 0;
+    uint128 empty;
+    std::vector<vector<uint128>> local_row(numThreads , vector<uint128>(((chunkLen - kVal) + 1)*(theta1*theta2) , empty));
+    std::vector<vector<uint128>> local_col(numThreads , vector<uint128>(((chunkLen - kVal) + 1)*(theta1*theta2) , empty));
+    std::vector<unsigned int> countsRow(numThreads , 0);
+    std::vector<unsigned int> countsCol(numThreads , 0);
+    //cout << "!" << endl;
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        auto& myRow = local_row[tid];
+        auto& myCol = local_col[tid];
+        unsigned int myEnd = endIndices[tid];
+        unsigned int* myStart = startIndices[tid];
+        countsRow[tid] = 0;
+        countsCol[tid] = 0;
+        uint128 kmer1 = startKmer(kVal , seq , &mask , myStart , myEnd);
+        uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
+        for (unsigned int i=*myStart + kVal-1; i<myEnd; i++)
+        {
+            char c = seq[i];
+            // if k-mer includes an invalid character, drop it and get next k-mer
+            if(c == 4)
+            {
+                *myStart = i+1;
+                kmer1 = startKmer(kVal , seq , &mask , myStart , myEnd);
+                if(*myStart > (myEnd - kVal))
+                {
+                    free(hashed);
+                    break;
+                }
+                i = *myStart + kVal - 2;
+                continue;
+            }
+            for(int j=0; j < maxNum; j++)
+            {
+                kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
+            }
+            kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
+            // Decide if kmer should be sampled
+            MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
+            float hash = (float)(*hashed) / (float)(UINT32_MAX);
+            if(hash < theta1)
+            {
+                if(countsRow[tid] < myRow.size())
+                {
+                    myRow[countsRow[tid]] = kmer1;
+                }
+                else
+                {
+                    myRow.push_back(kmer1);
+                }
+                (countsRow[tid]) ++;
+            }
+            // Different seeds for row and column for independence
+            MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed2 , hashed);
+            hash = (float)(*hashed) / (float)(UINT32_MAX);
+            if(hash < theta2)
+            {
+                if(countsCol[tid] < myCol.size())
+                {
+                    myCol[countsCol[tid]] = kmer1;
+                }
+                else
+                {
+                    myCol.push_back(kmer1);
+                }
+                (countsCol[tid]) ++;
+            }
+        }
+        free(hashed);
+    }
+    //cout << "!!" << endl;
+    for(int t=0; t<numThreads; t++)
+    {
+        unsigned int rowCount = countsRow[t];
+        unsigned int colCount = countsCol[t];
+        for(int i=0; i<rowCount; i++)
+        {
+            if(*countRow < kmersRow.size())
+            {
+                kmersRow[*countRow] = local_row[t][i];
+            }
+            else
+            {
+                kmersRow.push_back(local_row[t][i]);
+            }
+            (*countRow) ++;
+        } 
+        for(int i=0; i<colCount; i++)
+        {
+             if(*countCol < kmersCol.size())
+            {
+                kmersCol[*countCol] = local_col[t][i];
+            }
+            else
+            {
+                kmersCol.push_back(local_col[t][i]);
+            }
+            (*countCol) ++;
+        } 
+        //cout << "!!!" << endl;
+        free(startIndices[t]);
+    }
+    //cout << "!!!!" << endl;
+
+    auto end(std::chrono::high_resolution_clock::now());
+    auto duration(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start));
+    std::cout << "Duration: " << duration.count() << " ns\n";
+}
+
+// Returns HD of kmer1 and kmer2
+// Uses bit manipulation and popcount
+int hdPC(uint128 kmer1, uint128 kmer2)
+{
+  int dist = 0;
+
+  uint128 subseq1_oddBit;
+  uint128 subseq1_evenBit;
+  uint128 subseq2_oddBit;
+  uint128 subseq2_evenBit;
+
+  uint128 xor_firstBits;
+  uint128 xor_secondBits;
+
+  uint128 orResult;
+
+  for(int i=0; i < maxNum+1; i++)
+  {
+    // Mask bits to separate first and second bits of each character for each subsequence
+    subseq1_oddBit.fullKmer[i] = kmer1.fullKmer[i] & popMask;
+    subseq2_oddBit.fullKmer[i] = kmer2.fullKmer[i] & popMask;
+    subseq1_evenBit.fullKmer[i] = kmer1.fullKmer[i] & popMask2;
+    subseq2_evenBit.fullKmer[i] = kmer2.fullKmer[i] & popMask2;
+
+    // XOR each masked subsequence to compare first and second bits
+    // XOR result is 0 if the bits match
+    xor_firstBits.fullKmer[i] = subseq1_oddBit.fullKmer[i] ^ subseq2_oddBit.fullKmer[i];
+    xor_secondBits.fullKmer[i] = (subseq1_evenBit.fullKmer[i] ^ subseq2_evenBit.fullKmer[i]) << 1;
+
+    // NOR = 1 if both bits for the character matched = the character matched
+    // ~NOR = 1 if the characters did not match
+    // popcount(~nor) = number of characters that did not match
+    // ~nor = or
+    orResult.fullKmer[i] = xor_firstBits.fullKmer[i] | xor_secondBits.fullKmer[i];
+
+    dist += std::popcount(orResult.fullKmer[i]);
+  }
+
+  return dist;
+}
+
+// Output array of Hamming distance counts to a text file
+// dists - array of Hamming distance counts
+// len - length of array of Hamming distance counts (equivalent to k-mer size, since max HD is k)
+// outFile - file results are written to
+void output(uint64_t *dists , int len , char* outFile)
+{
+  ofstream out(outFile);
+
+  out << "Hamming Distance : Number of Pairs" << endl;
+  for(int i=1; i<=len; i++)
+  {
+      out << i << " : " << (uint64_t)(dists[i]) << endl;
+  }
+
+  out.close();
+}
+
+// Output array of Hamming distance counts to a text file
+// dists - array of Hamming distance counts
+// len - length of array of Hamming distance counts (equivalent to k-mer size, since max HD is k)
+// rate - sampling rate (theta1 * theta2)
+// outFile - file results are written to
+void outputSketch(uint64_t *dists , int len , double rate , char* outFile)
+{
+  ofstream out(outFile);
+  out << "Hamming Distance : Number of Pairs" << endl;
+  out << std::setprecision(std::numeric_limits<double>::max_digits10);
+  for(int i=1; i<=len; i++)
+  {
+      out << i << " : " << round(((double)dists[i]/(2.0 * rate))) << endl;
+  }
+
+  out.close();
+}
+
+// Compute full HD profile of sequence with no sketching, no multithreading
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+// dists - array to store HDs in
+void regularVer(int kVal, unsigned int seqLen , char* seq , uint64_t* dists)
+{
+    unsigned int numKmers = (seqLen - kVal) + 1;
+    uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
+
+    // Iterate through and store k-mers
+    numKmers = storeKmers(kmers , kVal , seqLen , seq);
+
+    // Calculate HD for each pair
+    for (unsigned int i=0; i<numKmers; i++)
+    {
+        for(unsigned int j=i+1; j<numKmers; j++)
+        {
+            dists[HD_FUNC(kmers[i]  , kmers[j])] ++;
+        }
+    }
+    free(kmers);
+}
+
+// Compute sketch of HD profile of sequence with no multithreading
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+// theta1 - row sampling rate
+// theta2 - column sampling rate
+// dists - array to store HDs in
+void sketch(int kVal , unsigned int seqLen , char* seq , double theta1 , double theta2 , uint64_t* dists)
+{   
+    unsigned int numKmers = (seqLen - kVal) + 1;
+    uint128 empty;
+    // Initially assume needed space based on sampling rate
+    std::vector<uint128> kmersRow((unsigned int)(numKmers*(theta1*theta2)) , empty);
+    std::vector<uint128> kmersCol((unsigned int)(numKmers*(theta1*theta2)) , empty);
+
+    unsigned int countRow;
+    unsigned int countCol;
+
+    // Sample k-mers
+    storeKmersSketch(kmersRow , kmersCol , &countRow , &countCol , kVal , seqLen , seq , theta1 , theta2);
+
+    // Calculate HD for sampled k-mers
+    for(unsigned int i=0; i<countRow; i++)
+    {
+        uint128 kmer1 = kmersRow[i];
+        for(unsigned int j=0; j<countCol; j++)
+        {
+            uint128 kmer2 = kmersCol[j];
+            dists[HD_FUNC(kmer1 , kmer2)] ++;
+        }
+    }
+}
+
+// Compute full HD profile of sequence with multithreading and no sketching
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+// numThreads - number of threads to run
+// dists - array to store HDs in
+void multithread(int kVal , unsigned int seqLen , char* seq , int numThreads , uint64_t* dists)
+{
+    unsigned int numKmers = (seqLen - kVal) + 1;
+    uint128 *kmers = (uint128*)calloc(numKmers , sizeof(uint128));
+
+    // Iterate through and store k-mers
+    numKmers = storeKmersMT(kmers , kVal , seqLen , seq , numThreads);
+    //cout << numKmers << endl;
+    /*for(int i=0; i<numKmers; i++)
+    {
+        cout << kmers[i].fullKmer[0] << endl;
+    }*/
+
+    // Calculate HD of each k-mer pair
+    std::vector<vector<uint64_t>> local_dists(numThreads , vector<uint64_t>(kVal + 1 , 0));
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        auto& hist = local_dists[tid];
+        #pragma omp for schedule(dynamic , 1)
+        for (unsigned int i = 0; i < numKmers; i++) {
+            const uint128 ki = kmers[i];
+            for (unsigned int j = i + 1; j < numKmers; j++) {
+                int hd = hdPC(ki, kmers[j]);
+                hist[hd]++;
+            }
+        }
+    }
+
+    for(int t=0; t<numThreads; t++)
+    {
+        for(int h=0; h<=kVal; h++)
+        {
+            dists[h] += local_dists[t][h];
+        }
+    }
+    
+    free(kmers);
+}
+
+// Compute sketch of HD profile of sequence with multithreading
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+// theta1 - row sampling rate
+// theta2 - column sampling rate
+// numThreads - number of threads to run
+// dists - array to store HDs in
+void sketch_multithread(int kVal , unsigned int seqLen , char* seq , double theta1 , double theta2 , int numThreads , uint64_t* dists)
+{
+    unsigned int numKmers = (seqLen - kVal) + 1;
+    uint128 empty;
+    // Initially assume needed space based on sampling rate
+    std::vector<uint128> kmersRow((unsigned int)(numKmers*(theta1*theta2)) , empty);
+    std::vector<uint128> kmersCol((unsigned int)(numKmers*(theta1*theta2)) , empty);
+
+    unsigned int countRow;
+    unsigned int countCol;
+
+    // Sample k-mers
+    storeKmersSketchMT(kmersRow , kmersCol , &countRow , &countCol , kVal , seqLen , seq , theta1 , theta2 , numThreads);
+
+    // Calculate HD for sampled k-mers
+    std::vector<vector<uint64_t>> local_dists(numThreads , vector<uint64_t>(kVal + 1 , 0));
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        auto& hist = local_dists[tid];
+        #pragma omp for schedule(dynamic , 1)
+        for (unsigned int i = 0; i < countRow; i++) {
+            const uint128 ki = kmersRow[i];
+            for (unsigned int j = 0; j < countCol; j++) {
+                int hd = hdPC(ki, kmersCol[j]);
+                hist[hd]++;
+            }
+        }
+    }
+
+    for(int t=0; t<numThreads; t++)
+    {
+        for(int h=0; h<=kVal; h++)
+        {
+            dists[h] += local_dists[t][h];
+        }
+    }
+}
+
+void printHelp()
+{
+    ifstream instructions("helpInstructs.txt");
+    if(!instructions)
+        return;
+
+    string nextLine;
+    while (getline(instructions , nextLine))
+    {
+        cout << nextLine << endl;
+    }
+    instructions.close();
+}
+
+int main(int argc, char* argv[]) {
+    char* inptFile;
+    char* outptFile;
+    unsigned int seqLen = UINT_MAX - 1; // Default = read entire input file
+    int kVal = 0;
+    // Default is full profile with no multithreading
+    double theta1 = 1.0;
+    double theta2 = 1.0;
+    int numThreads = 1;
+
+    // parse arguments
+    for (int i = 1; i < argc; i++)
+    {
+        string arg = argv[i];
+
+        if(arg == "-h" || arg == "--help")
+        {
+            printHelp();
+            return 0;
+        }
+
+        if(arg == "-i") //input file
+        {
+            if(argc <= (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                printHelp();
+                return 1;
+            }
+            inptFile = argv[++i];
+        }
+        else if(arg == "-o") //output file
+        {
+            if(argc <= (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                printHelp();
+                return 1;
+            }
+            outptFile = argv[++i];
+        }
+        else if(arg == "-l") //sequence length
+        {
+            if(argc <= (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                printHelp();
+                return 1;
+            }
+            seqLen = strtoul(argv[++i] , nullptr , 10);
+        }
+        else if(arg == "-k") //k-mer length
+        {
+            if(argc <= (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                printHelp();
+                return 1;
+            }
+            kVal = atoi(argv[++i]);
+        }
+        else if(arg == "-t") //multithreading
+        {
+            if(argc <= (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                printHelp();
+                return 1;
+            }
+            numThreads = atoi(argv[++i]);
+        }
+        else if(arg == "-s") //sketch
+        {
+            if(argc <= (i + 1))
+            {
+                cout << "ARGUMENT ERROR" << endl;
+                printHelp();
+                return 1;
+            }
+            // If one paramter given, assume both theta are equal
+            theta1 = atof(argv[++i]);
+            theta2 = theta1;
+            // Both thetas are specified
+            if((argc >= (i + 2)) && (argv[i+1][0] != '-'))
+            {
+                theta2 = atof(argv[++i]);
+            }
+        }
+        else
+        {
+            cout << "ARGUMENT ERROR" << endl;
+            printHelp();
+            return 1;
+        }
+    }
+    // Check for argument errors
+    if(kVal > 128 || kVal < 1 || seqLen < kVal || numThreads < 1 || theta1 <= 0 || theta2 <= 0 || theta1 > 1 || theta2 > 1 || inptFile == NULL || outptFile == NULL || inptFile == "" || outptFile == "")
+    {
+        cout << "ARGUMENT ERROR" << endl;
+        printHelp();
+        return 1;
+    }
+
+    maxNum = ((kVal-1) / 32);
+
+    popMask = (2.0)*((pow((long double)4 , (long double)(min(kVal , 32))) - 1)/3.0); // Keep odd bits
+    popMask2 = popMask >> 1; // Keep even bits
+
+    // Parse FASTA file to get sequence
+    char *charSeq = (char *)malloc(seqLen + 1);
+    unsigned int retrievedLen = getSequence(inptFile, seqLen, charSeq);
+    //unsigned int retrievedLen = getSeq(charSeq , inptFile , seqLen);
+    if(retrievedLen < kVal)
+    {
+        cout << "INPUT FILE ERROR" << endl;
+        return 1;
+    }
+
+    // 2-bit encoding
+    char* seq = (char *)calloc(retrievedLen , sizeof(char));
+    // Store as array of integers, each int is one encoded character
+    for (unsigned int i=0; i<retrievedLen; i++)
+    {
+        seq[i] = seq_nt4_table[(uint8_t)charSeq[i]];
+    }
+    free(charSeq);
+
+    // Tracks how many pairs had a Hamming distance of i, where i is an index of the array
+    uint64_t *dists = (uint64_t *)calloc(kVal+1 , sizeof(uint64_t));
+
+    // Run correct method
+
+    // multithreaded
+    if(numThreads > 1)
+    {
+        omp_set_num_threads(numThreads);
+        // sketching with multithreading
+        if(theta1*theta2 != 1)
+        {
+            sketch_multithread(kVal , retrievedLen , seq , theta1 , theta2 , numThreads , dists);
+            outputSketch(dists , kVal , (theta1 * theta2) , outptFile);
+        }
+        // full profile
+        else
+        {
+            multithread(kVal , retrievedLen , seq , numThreads , dists);
+            output(dists , kVal , outptFile);
+        }
+    }
+    // sketching
+    else if(theta1*theta2 != 1)
+    {
+        sketch(kVal , retrievedLen , seq , theta1 , theta2 , dists);
+        outputSketch(dists , kVal , (theta1 * theta2) , outptFile);
+    }
+    // full profile
+    else
+    {
+        regularVer(kVal , retrievedLen , seq , dists);
+        output(dists , kVal , outptFile);
+    }
+
+    free(dists);
+    free(seq);
+    //free(charSeq);
+
+    return 0;
+}
