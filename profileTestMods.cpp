@@ -238,6 +238,7 @@ unsigned int storeKmersMT(
     char* seq,
     int numThreads)
 {
+    auto start(std::chrono::high_resolution_clock::now());
     if (kVal < 1 || kVal > 128 ||
         seqLen < static_cast<unsigned int>(kVal))
     {
@@ -373,6 +374,9 @@ unsigned int storeKmersMT(
         }
     }
 
+    auto end(std::chrono::high_resolution_clock::now());
+    auto duration(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start));
+    std::cout << "Duration: " << duration.count() << " ns\n";
     return static_cast<unsigned int>(offsets[numChunks]);
 }
 
