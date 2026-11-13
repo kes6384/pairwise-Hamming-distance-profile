@@ -9,8 +9,6 @@
 #include <fstream>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
-#include <bit>
 #include <bitset>
 #include <random>
 #include <omp.h>
@@ -18,6 +16,7 @@
 #include <climits>
 #include <iomanip>
 #include <chrono>
+#include <algorithm>
 #include "MurmurHash3.cpp" // https://github.com/aappleby/smhasher/tree/master
 #include "parseFASTA.cpp" // Simple FASTA parser
 
@@ -225,37 +224,24 @@ unsigned int storeKmers(uint128 *kmers , int kVal , unsigned int seqLen , char* 
 //     return totalCount;
 // }
 
-#include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <vector>
-#include <omp.h>
-
-unsigned int storeKmersMT(
-    uint128* kmers,
-    int kVal,
-    unsigned int seqLen,
-    char* seq,
-    int numThreads)
+// Separates out and stores k-mers found in sequence
+// Used when multithreading
+// kmers - array to store kmers in
+// kVal - k
+// seqLen - length of sequence
+// seq - sequence to analyze
+// numThreads - number of threads to use
+// returns the number of k-mers actually found (may be less than expected due to invalid characters)
+unsigned int storeKmersMT(uint128* kmers, int kVal, unsigned int seqLen, char* seq, int numThreads)
 {
     auto start(std::chrono::high_resolution_clock::now());
-    if (kVal < 1 || kVal > 128 ||
-        seqLen < static_cast<unsigned int>(kVal))
-    {
-        return 0;
-    }
 
     const size_t k = static_cast<size_t>(kVal);
 
     // Partition possible k-mer starting positions, not sequence characters.
     const size_t numStarts = static_cast<size_t>(seqLen) - k + 1;
 
-    const int numChunks = static_cast<int>(
-        std::min(
-            numStarts,
-            static_cast<size_t>(std::max(1, numThreads))
-        )
-    );
+    const int numChunks = static_cast<int>(std::min(numStarts,static_cast<size_t>(numThreads)));
 
     std::vector<size_t> counts(numChunks, 0);
     std::vector<size_t> offsets(numChunks + 1, 0);
@@ -265,11 +251,9 @@ unsigned int storeKmersMT(
     for (int t = 0; t < numChunks; ++t)
     {
         // This chunk owns k-mer starts in [begin, end).
-        const size_t begin =
-            numStarts * static_cast<size_t>(t) / numChunks;
+        const size_t begin = numStarts * static_cast<size_t>(t) / numChunks;
 
-        const size_t end =
-            numStarts * static_cast<size_t>(t + 1) / numChunks;
+        const size_t end = numStarts * static_cast<size_t>(t + 1) / numChunks;
 
         // Read k - 1 additional characters to complete the last k-mer.
         const size_t scanEnd = end + k - 1;
@@ -279,8 +263,7 @@ unsigned int storeKmersMT(
 
         for (size_t i = begin; i < scanEnd; ++i)
         {
-            const unsigned char c =
-                static_cast<unsigned char>(seq[i]);
+            const unsigned char c = static_cast<unsigned char>(seq[i]);
 
             if (c >= 4)
             {
@@ -314,20 +297,16 @@ unsigned int storeKmersMT(
     {
         const int bases = kVal - 32 * j;
 
-        mask.fullKmer[j] = (bases >= 32)
-            ? ~0ULL
-            : ((1ULL << (2 * bases)) - 1);
+        mask.fullKmer[j] = (bases >= 32) ? ~0ULL : ((1ULL << (2 * bases)) - 1);
     }
 
     // Pass 2: generate k-mers directly into their final output ranges.
     #pragma omp parallel for num_threads(numChunks) schedule(static)
     for (int t = 0; t < numChunks; ++t)
     {
-        const size_t begin =
-            numStarts * static_cast<size_t>(t) / numChunks;
+        const size_t begin = numStarts * static_cast<size_t>(t) / numChunks;
 
-        const size_t end =
-            numStarts * static_cast<size_t>(t + 1) / numChunks;
+        const size_t end = numStarts * static_cast<size_t>(t + 1) / numChunks;
 
         const size_t scanEnd = end + k - 1;
 
@@ -339,8 +318,7 @@ unsigned int storeKmersMT(
 
         for (size_t i = begin; i < scanEnd; ++i)
         {
-            const unsigned char c =
-                static_cast<unsigned char>(seq[i]);
+            const unsigned char c = static_cast<unsigned char>(seq[i]);
 
             if (c >= 4)
             {
@@ -353,17 +331,11 @@ unsigned int storeKmersMT(
             // Shift the encoded k-mer and propagate bits between words.
             for (int j = 0; j < lastWord; ++j)
             {
-                kmer.fullKmer[j] =
-                    ((kmer.fullKmer[j] << 2) |
-                     (kmer.fullKmer[j + 1] >> 62))
-                    & mask.fullKmer[lastWord - j];
+                kmer.fullKmer[j] = ((kmer.fullKmer[j] << 2) | (kmer.fullKmer[j + 1] >> 62)) & mask.fullKmer[lastWord - j];
             }
 
             // Append the new base to the last active word.
-            kmer.fullKmer[lastWord] =
-                ((kmer.fullKmer[lastWord] << 2) |
-                 static_cast<uint64_t>(c))
-                & mask.fullKmer[0];
+            kmer.fullKmer[lastWord] = ((kmer.fullKmer[lastWord] << 2) | static_cast<uint64_t>(c)) & mask.fullKmer[0];
 
             ++validRun;
 
@@ -471,6 +443,7 @@ void storeKmersSketch(std::vector<uint128> &kmersRow , std::vector<uint128> &kme
 }
 
 // Separates out and stores a sketch of k-mers in sequence
+// Used when multithreading
 // kmersRow - vector to store row k-mers in
 // kmersCol - vector to store column k-mers in
 // countRow - address to store number of k-mers in row
@@ -493,131 +466,183 @@ void storeKmersSketchMT(std::vector<uint128> &kmersRow , std::vector<uint128> &k
     //uint32_t seed1 = rd();
     //uint32_t seed2 = rd();
     //cout << seed1 << " and " << seed2 << endl;
-    
-    // split sequence into chunks based on number of threads
-    unsigned int chunkLen = ((seqLen - 1)/numThreads) + (kVal - 1) + 1;
 
-    uint128 mask;
-    for(int i=0; i < maxNum+1; i++)
-    {
-        mask.fullKmer[i] = (kVal >= ((i+1)*32)) ? ~0ULL : ((1ULL << (2 * (kVal-(32*i)))) - 1);
-    }
-    // Pointers to start positions
-    std::vector<unsigned int*> startIndices(numThreads , 0);
-    // Pointers to end positions
-    std::vector<unsigned int> endIndices(numThreads , 0);
-    for(int i=0; i<numThreads; i++)
-    {
-        startIndices[i] = (unsigned int*)malloc(sizeof(unsigned int));
-        *startIndices[i] = i * (chunkLen - kVal + 1);
-        endIndices[i] = min(*startIndices[i] + chunkLen , seqLen);
-    }
     *countRow = 0;
     *countCol = 0;
-    uint128 empty;
-    std::vector<vector<uint128>> local_row(numThreads , vector<uint128>(((chunkLen - kVal) + 1)*(theta1*theta2) , empty));
-    std::vector<vector<uint128>> local_col(numThreads , vector<uint128>(((chunkLen - kVal) + 1)*(theta1*theta2) , empty));
-    std::vector<unsigned int> countsRow(numThreads , 0);
-    std::vector<unsigned int> countsCol(numThreads , 0);
-    //cout << "!" << endl;
-    #pragma omp parallel
+
+    const size_t k = static_cast<size_t>(kVal);
+
+    // Partition possible k-mer starting positions, not sequence characters.
+    const size_t numStarts = static_cast<size_t>(seqLen) - k + 1;
+
+    const int numChunks = static_cast<int>(std::min(numStarts,static_cast<size_t>(numThreads)));
+
+    std::vector<size_t> rowCounts(numChunks, 0);
+    std::vector<size_t> colCounts(numChunks, 0);
+    std::vector<size_t> rowOffsets(numChunks + 1, 0);
+    std::vector<size_t> colOffsets(numChunks + 1, 0);
+
+    // Build the mask
+    const int lastWord = (kVal - 1) / 32;
+    uint128 mask{};
+
+    for (int j = 0; j <= lastWord; ++j)
     {
-        int tid = omp_get_thread_num();
-        auto& myRow = local_row[tid];
-        auto& myCol = local_col[tid];
-        unsigned int myEnd = endIndices[tid];
-        unsigned int* myStart = startIndices[tid];
-        countsRow[tid] = 0;
-        countsCol[tid] = 0;
-        uint128 kmer1 = startKmer(kVal , seq , &mask , myStart , myEnd);
-        uint32_t *hashed = (uint32_t *)malloc(sizeof(uint32_t));
-        for (unsigned int i=*myStart + kVal-1; i<myEnd; i++)
+        const int bases = kVal - 32 * j;
+
+        mask.fullKmer[j] = (bases >= 32) ? ~0ULL : ((1ULL << (2 * bases)) - 1);
+    }
+
+    //cout << "!!" << endl;
+    // Pass 1: count sampled k-mers independently in each chunk.
+    #pragma omp parallel for num_threads(numChunks) schedule(static)
+    for (int t=0; t<numChunks; ++t)
+    {
+        // This chunk owns k-mer starts in [begin, end).
+        const size_t begin = numStarts * static_cast<size_t>(t) / numChunks;
+
+        const size_t end = numStarts * static_cast<size_t>(t + 1) / numChunks;
+
+        // Read k - 1 additional characters to complete the last k-mer.
+        const size_t scanEnd = end + k - 1;
+
+        uint128 kmer{};
+
+        size_t validRun = 0;
+        size_t rowCount = 0;
+        size_t colCount = 0;
+
+        uint32_t hashed = 0;
+
+        for (size_t i = begin; i < scanEnd; ++i)
         {
-            char c = seq[i];
-            // if k-mer includes an invalid character, drop it and get next k-mer
-            if(c == 4)
+            const unsigned char c = static_cast<unsigned char>(seq[i]);
+
+            if (c >= 4)
             {
-                *myStart = i+1;
-                kmer1 = startKmer(kVal , seq , &mask , myStart , myEnd);
-                if(*myStart > (myEnd - kVal))
-                {
-                    free(hashed);
-                    break;
-                }
-                i = *myStart + kVal - 2;
+                // Discard any partial k-mer containing an invalid base.
+                kmer = uint128{};
+                validRun = 0;
                 continue;
             }
-            for(int j=0; j < maxNum; j++)
+
+            else
             {
-                kmer1.fullKmer[j] = ((kmer1.fullKmer[j] << 2) | (kmer1.fullKmer[j+1] >> 62)) & mask.fullKmer[maxNum-j];
-            }
-            kmer1.fullKmer[maxNum] = ((kmer1.fullKmer[maxNum] << 2) | (uint64_t)c) & mask.fullKmer[0];
-            // Decide if kmer should be sampled
-            MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed1 , hashed);
-            float hash = (float)(*hashed) / (float)(UINT32_MAX);
-            if(hash < theta1)
-            {
-                if(countsRow[tid] < myRow.size())
+                // Shift the encoded k-mer and propagate bits between words.
+                for (int j = 0; j < lastWord; ++j)
                 {
-                    myRow[countsRow[tid]] = kmer1;
+                    kmer.fullKmer[j] = ((kmer.fullKmer[j] << 2) | (kmer.fullKmer[j + 1] >> 62)) & mask.fullKmer[lastWord - j];
                 }
-                else
+
+                // Append the new base to the last active word.
+                kmer.fullKmer[lastWord] = ((kmer.fullKmer[lastWord] << 2) | static_cast<uint64_t>(c)) & mask.fullKmer[0];
+                ++validRun;
+
+                if (validRun >= k)
                 {
-                    myRow.push_back(kmer1);
+                    // Check if k-mer will be sampled
+                    MurmurHash3_x86_32(&kmer , sizeof(kmer) , seed1 , &hashed);
+                    float hash = (float)(hashed) / (float)(UINT32_MAX);
+                    if(hash < theta1)
+                        ++rowCount;
+                    MurmurHash3_x86_32(&kmer , sizeof(kmer) , seed2 , &hashed);
+                    hash = (float)(hashed) / (float)(UINT32_MAX);
+                    if(hash < theta2)
+                        ++colCount;
                 }
-                (countsRow[tid]) ++;
-            }
-            // Different seeds for row and column for independence
-            MurmurHash3_x86_32(&kmer1 , sizeof(kmer1) , seed2 , hashed);
-            hash = (float)(*hashed) / (float)(UINT32_MAX);
-            if(hash < theta2)
-            {
-                if(countsCol[tid] < myCol.size())
-                {
-                    myCol[countsCol[tid]] = kmer1;
-                }
-                else
-                {
-                    myCol.push_back(kmer1);
-                }
-                (countsCol[tid]) ++;
             }
         }
-        free(hashed);
+
+        // Write the shared count only once per chunk.
+        rowCounts[t] = rowCount;
+        colCounts[t] = colCount;
     }
-    //cout << "!!" << endl;
-    for(int t=0; t<numThreads; t++)
+
+    //cout << "!" << endl;
+
+    // Assign non-overlapping output ranges.
+    // This loop performs only numChunks additions.
+    for (int t = 0; t < numChunks; ++t)
     {
-        unsigned int rowCount = countsRow[t];
-        unsigned int colCount = countsCol[t];
-        for(int i=0; i<rowCount; i++)
-        {
-            if(*countRow < kmersRow.size())
-            {
-                kmersRow[*countRow] = local_row[t][i];
-            }
-            else
-            {
-                kmersRow.push_back(local_row[t][i]);
-            }
-            (*countRow) ++;
-        } 
-        for(int i=0; i<colCount; i++)
-        {
-             if(*countCol < kmersCol.size())
-            {
-                kmersCol[*countCol] = local_col[t][i];
-            }
-            else
-            {
-                kmersCol.push_back(local_col[t][i]);
-            }
-            (*countCol) ++;
-        } 
-        //cout << "!!!" << endl;
-        free(startIndices[t]);
+        rowOffsets[t + 1] = rowOffsets[t] + rowCounts[t];
+        colOffsets[t + 1] = colOffsets[t] + colCounts[t];
     }
-    //cout << "!!!!" << endl;
+
+    // Adjust vector sizes according to the number of k-mers actually sampled
+    kmersRow.resize(rowOffsets[numChunks]);
+    kmersCol.resize(colOffsets[numChunks]);
+
+    //cout << "before 2nd loop" << endl;
+
+    // Pass 2: generate k-mers directly into their final output ranges.
+    #pragma omp parallel for num_threads(numChunks) schedule(static)
+    for (int t = 0; t < numChunks; ++t)
+    {
+        const size_t begin = numStarts * static_cast<size_t>(t) / numChunks;
+
+        const size_t end = numStarts * static_cast<size_t>(t + 1) / numChunks;
+
+        const size_t scanEnd = end + k - 1;
+
+        uint128 kmer{};
+        size_t validRun = 0;
+
+        // Each chunk has its own local output cursors.
+        size_t rowOut = rowOffsets[t];
+        size_t colOut = colOffsets[t];
+
+        uint32_t hashed = 0;
+
+        for (size_t i = begin; i < scanEnd; ++i)
+        {
+            const unsigned char c = static_cast<unsigned char>(seq[i]);
+
+            if (c >= 4)
+            {
+                // Discard any partial k-mer containing an invalid base.
+                kmer = uint128{};
+                validRun = 0;
+                continue;
+            }
+
+            // Shift the encoded k-mer and propagate bits between words.
+            for (int j = 0; j < lastWord; ++j)
+            {
+                kmer.fullKmer[j] = ((kmer.fullKmer[j] << 2) | (kmer.fullKmer[j + 1] >> 62)) & mask.fullKmer[lastWord - j];
+            }
+
+            // Append the new base to the last active word.
+            kmer.fullKmer[lastWord] = ((kmer.fullKmer[lastWord] << 2) | static_cast<uint64_t>(c)) & mask.fullKmer[0];
+
+            ++validRun;
+
+            //cout << "~" << endl;
+
+            if (validRun >= k)
+            {
+                // Check if k-mer should be sampled
+                MurmurHash3_x86_32(&kmer , sizeof(kmer) , seed1 , &hashed);
+                float hash = (float)(hashed) / (float)(UINT32_MAX);
+                if(hash < theta1)
+                {
+                    kmersRow[rowOut++] = kmer;
+                }
+                MurmurHash3_x86_32(&kmer , sizeof(kmer) , seed2 , &hashed);
+                hash = (float)(hashed) / (float)(UINT32_MAX);
+                if(hash < theta2)
+                {
+                    kmersCol[colOut++] = kmer;
+                }
+            }
+            //cout << "." << endl;
+        }
+    }
+    //cout << "!!!" << endl;
+
+    *countRow = static_cast<unsigned int>(rowOffsets[numChunks]);
+    *countCol = static_cast<unsigned int>(colOffsets[numChunks]);
+    //cout << *countRow << endl;
+    //cout << *countCol << endl;
 
     auto end(std::chrono::high_resolution_clock::now());
     auto duration(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start));
